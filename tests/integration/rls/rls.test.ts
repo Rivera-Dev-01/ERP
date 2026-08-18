@@ -146,8 +146,15 @@ describe.skipIf(!available)('RLS cross-organization isolation', () => {
       .from('account')
       .update({ name: 'Hacked' })
       .eq('organization_id', orgIdB);
+    expect(error).toBeNull();
 
-    expect(error).not.toBeNull();
+    const { data: check } = await admin
+      .from('account')
+      .select('name')
+      .eq('organization_id', orgIdB)
+      .eq('code', '1000')
+      .single();
+    expect(check!.name).toBe('Org B Cash');
   });
 
   it('restricts profile access to the owner', async () => {

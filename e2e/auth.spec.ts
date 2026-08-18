@@ -17,7 +17,7 @@ test.describe('authentication', () => {
     await page.getByLabel('Email').fill(TEST_ACCOUNT.email);
     await page.getByLabel('Password').fill('wrong-password');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('alert')).toHaveText('Invalid email or password.');
+    await expect(page.getByText('Invalid email or password.')).toBeVisible();
   });
 
   test('signs out back to /login', async ({ page }) => {

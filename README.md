@@ -5,22 +5,31 @@ Single-company accounting prototype: journal entries, posting, reversal, and the
 ## Prerequisites
 
 - Node.js >= 20
-- Docker Desktop (for the local Supabase stack)
+- A hosted Supabase project (free tier is fine)
 - Git
 
 ## Local setup
 
 ```bash
 npm install
-npx supabase start          # starts local Postgres + Auth (first run downloads images)
-npx supabase db reset       # applies migrations and seed data
+cp .env.example .env        # then fill in your hosted project's URL and keys
 ```
 
-Copy the keys printed by `supabase start` into `.env` (template: `.env.example`):
+Get the values from your Supabase project dashboard (Settings → API) or via the CLI:
 
 ```bash
-cp .env.example .env
+npx supabase login
+npx supabase projects api-keys --project-ref <project-ref>
 ```
+
+Apply the schema migrations to your hosted project:
+
+```bash
+npx supabase link --project-ref <project-ref>
+npx supabase db push
+```
+
+Apply the seed data once from the dashboard: open `supabase/seed.sql`, paste it into the SQL Editor, and run it (it is idempotent — re-running is safe).
 
 Run the app:
 
@@ -36,16 +45,17 @@ Sign in with the seeded accountant:
 ## Database commands
 
 ```bash
-npx supabase db reset                  # re-apply all migrations + seed
-npx supabase gen types typescript --local --output src/types/database.ts
-npx supabase stop                      # stop the local stack
+npx supabase db push                    # apply pending migrations to the linked project
+npx supabase gen types typescript --linked   # regenerate src/types/database.ts (redirect stdout)
 ```
+
+`supabase db reset` is only available for the local stack; on hosted, schema changes ship as new migrations.
 
 ## Tests
 
 ```bash
-npm test                               # unit + integration (RLS tests need the local stack + .env.test)
-npm run test:e2e                       # Playwright (needs local stack + seed, and npm run dev or the built app)
+npm test                               # unit + integration (RLS tests need .env.test)
+npm run test:e2e                       # Playwright (needs a production build: npm run build first)
 ```
 
 Copy `.env.test.example` to `.env.test` and fill in the Supabase keys for the RLS integration tests.
@@ -67,7 +77,7 @@ docker build -t erp-v0 .
 docker run -p 3000:3000 -e NEXT_PUBLIC_SUPABASE_URL=... -e NEXT_PUBLIC_SUPABASE_ANON_KEY=... erp-v0
 ```
 
-For managed hosting, connect the repository to your provider and set the environment variables from a hosted Supabase project (apply migrations with `supabase db push` after linking with `supabase link`).
+For managed hosting, connect the repository to your provider and set the environment variables from your hosted Supabase project.
 
 ## Security notes
 
@@ -77,6 +87,5 @@ For managed hosting, connect the repository to your provider and set the environ
 
 ## Known limitations (Phase 1)
 
-- Local Supabase stack only; no hosted deployment yet.
 - Accounts, journal entries, imports, and reports are not yet implemented (Phases 2–5).
 - Single visible organization (schema is multi-org ready via `organization_id` + RLS).
