@@ -1,0 +1,5 @@
+Entry Group,Entry Date,Reference,Entry Description,Account Code,Line Description,Debit,Credit,Tax Code
+1,2026-07-01,INV-001,Owner investment,1000,Initial cash deposit,100000,
+1,2026-07-01,INV-001,Owner investment,3000,Owner's capital contribution,,100000,
+2,2026-07-05,EXP-001,Office supplies paid in cash,5000,Purchase of office supplies,5000,
+2,2026-07-05,EXP-001,Office supplies paid in cash,1000,Cash payment,,5000,

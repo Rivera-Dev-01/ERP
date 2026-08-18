@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ERP V0 — Accounting Prototype
 
-## Getting Started
+Single-company accounting prototype: journal entries, posting, reversal, and the five core financial reports, built with Next.js + Supabase. See `docs/superpowers/specs/2026-08-19-erp-v0-design.md` for the full specification.
 
-First, run the development server:
+## Prerequisites
+
+- Node.js >= 20
+- Docker Desktop (for the local Supabase stack)
+- Git
+
+## Local setup
+
+```bash
+npm install
+npx supabase start          # starts local Postgres + Auth (first run downloads images)
+npx supabase db reset       # applies migrations and seed data
+```
+
+Copy the keys printed by `supabase start` into `.env` (template: `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Run the app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Sign in with the seeded accountant:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Email: `accountant@v0.local`
+- Password: `demo-pass-123`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Database commands
 
-## Learn More
+```bash
+npx supabase db reset                  # re-apply all migrations + seed
+npx supabase gen types typescript --local --output src/types/database.ts
+npx supabase stop                      # stop the local stack
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Tests
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm test                               # unit + integration (RLS tests need the local stack + .env.test)
+npm run test:e2e                       # Playwright (needs local stack + seed, and npm run dev or the built app)
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Copy `.env.test.example` to `.env.test` and fill in the Supabase keys for the RLS integration tests.
 
-## Deploy on Vercel
+## Lint, types, and build
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+The app is a standard Next.js standalone build; a `Dockerfile` is included:
+
+```bash
+docker build -t erp-v0 .
+docker run -p 3000:3000 -e NEXT_PUBLIC_SUPABASE_URL=... -e NEXT_PUBLIC_SUPABASE_ANON_KEY=... erp-v0
+```
+
+For managed hosting, connect the repository to your provider and set the environment variables from a hosted Supabase project (apply migrations with `supabase db push` after linking with `supabase link`).
+
+## Security notes
+
+- The service-role key (`SUPABASE_SERVICE_ROLE_KEY`) is server-only. It must never be exposed to the browser — do not prefix it with `NEXT_PUBLIC_`.
+- All organization-owned tables are protected by PostgreSQL Row-Level Security; the application additionally checks organization membership on every request.
+- Secrets are never committed. Only `.env.example` and `.env.test.example` are tracked.
+
+## Known limitations (Phase 1)
+
+- Local Supabase stack only; no hosted deployment yet.
+- Accounts, journal entries, imports, and reports are not yet implemented (Phases 2–5).
+- Single visible organization (schema is multi-org ready via `organization_id` + RLS).
