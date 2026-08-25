@@ -59,7 +59,9 @@ describe.skipIf(!available)('account integration', () => {
     });
     expect(userErr).toBeNull();
     const userId = userData.user!.id;
-    const { error: profileErr } = await admin.from('profile').insert({ id: userId, name: 'Deact Tester' });
+    const { error: profileErr } = await admin
+      .from('profile')
+      .insert({ id: userId, name: 'Deact Tester' });
     expect(profileErr).toBeNull();
     const { error: memErr } = await admin.from('organization_membership').insert({
       organization_id: deactOrgId,
@@ -150,13 +152,21 @@ describe.skipIf(!available)('account integration', () => {
     const resWithout = await simulateDeactivate(accountAId, false);
     expect(resWithout.ok).toBe(false);
     expect((resWithout as { warningCount?: number }).warningCount).toBeGreaterThan(0);
-    const { data: accBefore } = await admin.from('account').select('is_active').eq('id', accountAId).single();
+    const { data: accBefore } = await admin
+      .from('account')
+      .select('is_active')
+      .eq('id', accountAId)
+      .single();
     expect(accBefore?.is_active).toBe(true);
 
     // with confirmed=true → expect is_active=false and line still present
     const resWith = await simulateDeactivate(accountAId, true);
     expect(resWith.ok).toBe(true);
-    const { data: accAfter } = await admin.from('account').select('is_active').eq('id', accountAId).single();
+    const { data: accAfter } = await admin
+      .from('account')
+      .select('is_active')
+      .eq('id', accountAId)
+      .single();
     expect(accAfter?.is_active).toBe(false);
     const { count: lineCount } = await admin
       .from('journal_line')

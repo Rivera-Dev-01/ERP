@@ -23,7 +23,13 @@ export function DeactivateConfirm({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction, pending] = useActionState(deactivateAccount as unknown as (prev: { ok: boolean; warningCount?: number; formError?: string }, fd: FormData) => Promise<{ ok: boolean; warningCount?: number; formError?: string }>, { ok: false } as never);
+  const [state, formAction, pending] = useActionState(
+    deactivateAccount as unknown as (
+      prev: { ok: boolean; warningCount?: number; formError?: string },
+      fd: FormData,
+    ) => Promise<{ ok: boolean; warningCount?: number; formError?: string }>,
+    { ok: false } as never,
+  );
 
   const warningCount = (state as { warningCount?: number } | null)?.warningCount;
   const hasWarning = typeof warningCount === 'number' && warningCount > 0;
@@ -50,7 +56,9 @@ export function DeactivateConfirm({
       />
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{hasWarning ? 'Confirm deactivation' : 'Deactivate account?'}</AlertDialogTitle>
+          <AlertDialogTitle>
+            {hasWarning ? 'Confirm deactivation' : 'Deactivate account?'}
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {hasWarning
               ? `This account is used in ${warningCount} journal lines — deactivate anyway? It will be hidden from future entry forms but retained in history and reports.`

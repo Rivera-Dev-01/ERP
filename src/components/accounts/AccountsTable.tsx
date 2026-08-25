@@ -55,7 +55,9 @@ export function AccountsTable({ data }: { data: Account[] }) {
           const v = info.getValue();
           return (
             <Badge
-              className={cn(v ? 'bg-emerald-100 text-emerald-900' : 'bg-muted text-muted-foreground')}
+              className={cn(
+                v ? 'bg-emerald-100 text-emerald-900' : 'bg-muted text-muted-foreground',
+              )}
             >
               {v ? 'Active' : 'Inactive'}
             </Badge>

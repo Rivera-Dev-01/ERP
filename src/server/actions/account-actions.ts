@@ -1,9 +1,13 @@
 'use server';
 import 'server-only';
 import { revalidatePath } from 'next/cache';
+import Papa from 'papaparse';
 import { requireOrganizationAction } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { accountSchema } from '@/lib/validation/account';
+import { ACCOUNT_HEADERS } from '@/server/domain/accounts';
+import { validateCoaRows } from '@/server/imports/coa-import';
+import type { Database } from '@/types/database';
 
 type R = { ok: boolean; fieldErrors?: Record<string, string>; formError?: string };
 
@@ -137,4 +141,89 @@ export async function seedDemoAccountsIfEmpty(): Promise<void> {
   await supabase
     .from('account')
     .upsert(rows, { onConflict: 'organization_id,code', ignoreDuplicates: false });
+}
+
+export async function importAccountsCsv(
+  _prev: {
+    ok: boolean;
+    rowErrors?: Array<{ row: number; code: string; message: string }>;
+    rowCount?: number;
+    formError?: string;
+  },
+  formData: FormData,
+) {
+  let ctx;
+  try {
+    ctx = await requireOrganizationAction();
+  } catch {
+    return { ok: false, formError: 'Not authorized' } as const;
+  }
+  const file = formData.get('file') as File | null;
+  if (!file) return { ok: false, formError: 'No file provided' } as const;
+  const text = await file.text();
+  const parsed = (
+    Papa.parse as unknown as (
+      input: string,
+      config: unknown,
+    ) => Papa.ParseResult<Record<string, string>>
+  )(text, {
+    header: true,
+    skipEmptyLines: true,
+    trimHeaders: true,
+  } as unknown as Papa.ParseConfig);
+  const headers = (parsed.meta.fields ?? []).map((h: string) => String(h).trim());
+  const headerOk = ACCOUNT_HEADERS.every((h) =>
+    headers.map((x: string) => x.toLowerCase()).includes(h.toLowerCase()),
+  );
+  if (!headerOk)
+    return {
+      ok: false,
+      formError: `Invalid header. Expected: ${ACCOUNT_HEADERS.join(', ')}`,
+    } as const;
+  const rows = parsed.data as Record<string, string>[];
+  const { rowErrors, normalized } = validateCoaRows(rows);
+  const supabase = await createClient();
+  if (normalized.length > 0) {
+    const codes = normalized.map((r) => r.code);
+    const { data: existing } = await supabase
+      .from('account')
+      .select('code')
+      .eq('organization_id', ctx.organization.id)
+      .in('code', codes);
+    const existingSet = new Set((existing ?? []).map((r) => r.code));
+    for (const r of normalized)
+      if (existingSet.has(r.code))
+        rowErrors.push({ row: -1, code: r.code, message: 'Code already exists in organization' });
+  }
+  if (rowErrors.length > 0) return { ok: false, rowErrors, rowCount: rows.length } as const;
+  const payload = normalized.map((r) => ({
+    organization_id: ctx.organization.id,
+    code: r.code,
+    name: r.name,
+    type: r.type as Database['public']['Enums']['account_type'],
+    normal_balance: r.normal_balance as Database['public']['Enums']['normal_balance'],
+    is_active: r.is_active,
+  }));
+  const { error } = await supabase.from('account').insert(payload);
+  if (error) {
+    if ((error as { code?: string }).code === '23505')
+      return {
+        ok: false,
+        rowErrors: [{ row: -1, code: '', message: 'Duplicate code in organization (race)' }],
+        rowCount: rows.length,
+      } as const;
+    return { ok: false, formError: 'Import failed. Please try again.' } as const;
+  }
+  await supabase.from('import_batch').insert({
+    organization_id: ctx.organization.id,
+    file_name: file.name,
+    import_type: 'CHART_OF_ACCOUNTS',
+    status: 'IMPORTED',
+    row_count: rows.length,
+    valid_row_count: rows.length,
+    invalid_row_count: 0,
+    created_by_id: ctx.profile.id,
+  });
+  revalidatePath('/accounts');
+  return { ok: true, rowCount: rows.length } as const;
 }
