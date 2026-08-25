@@ -1,0 +1,7 @@
+Account Code,Account Name,Account Type,Normal Balance,Active
+1000,Cash in Bank,ASSET,DEBIT,true
+1100,Accounts Receivable,ASSET,DEBIT,true
+3000,Owner's Capital,EQUITY,CREDIT,true
+4000,Service Revenue,INCOME,CREDIT,true
+5000,Office Supplies Expense,EXPENSE,DEBIT,true
+5100,Utilities Expense,EXPENSE,DEBIT,true
