@@ -2,11 +2,13 @@ import { notFound } from 'next/navigation';
 import { requireOrganization } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { JournalForm } from '@/components/journal/JournalForm';
+import { PostConfirm } from '@/components/journal/PostConfirm';
 import { formatEntryNumber } from '@/lib/validation/journal';
 import { formatBusinessDate, formatPHP } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { canPost } from '@/server/domain/journals';
 
 export default async function JournalEntryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -102,7 +104,7 @@ export default async function JournalEntryPage({ params }: { params: Promise<{ i
     );
   }
 
-  // DRAFT -> editable form
+  // DRAFT -> editable form + PostConfirm
   // Need active accounts for picker and entry prop
   const { data: accounts } = await supabase
     .from('account')
@@ -110,6 +112,19 @@ export default async function JournalEntryPage({ params }: { params: Promise<{ i
     .eq('organization_id', organization.id)
     .eq('is_active', true)
     .order('code');
+
+  if (canPost(status)) {
+    const e = entry as { entry_number: number | null; entry_date: string };
+    const display = formatEntryNumber(e.entry_number, e.entry_date);
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <PostConfirm entryId={id} entryNumber={display} />
+        </div>
+        <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} />
+      </div>
+    );
+  }
 
   return <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} />;
 }

@@ -151,6 +151,33 @@ export async function duplicateJournalEntry(entryId: string): Promise<{ ok: bool
   return { ok: true, newId: created.id };
 }
 
-// TODO Tasks 2-3: postJournalEntry and reverseJournalEntry will be implemented in later slices.
-// postJournalEntry(entryId) -> supabase.rpc('post_journal_entry', { p_entry_id: entryId })
-// reverseJournalEntry(entryId, reversalDate, description?) -> supabase.rpc('reverse_journal_entry', { p_entry_id: entryId, p_reversal_date: reversalDate, p_description: description })
+export async function postJournalEntry(entryId: string): Promise<{ ok: boolean; entryNumber?: string; formError?: string; fieldErrors?: Record<string, string> }> {
+  const supabase = await createClient();
+  const { data, error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>)(
+    'post_journal_entry',
+    { p_entry_id: entryId },
+  );
+  if (error) {
+    const msg = (error as { message?: string }).message ?? '';
+    const lower = msg.toLowerCase();
+    const code = (error as { code?: string }).code;
+    if (code === 'P0001') {
+      if (/open period/.test(lower)) {
+        return { ok: false, formError: 'Date not in any open period', fieldErrors: { entry_date: 'Date not in any open period' } };
+      }
+      if (/debits do not equal/.test(lower)) {
+        return { ok: false, formError: 'Debits do not equal credits' };
+      }
+      if (/two lines/.test(lower)) {
+        return { ok: false, formError: 'At least two lines are required' };
+      }
+      if (/inactive/.test(lower)) {
+        return { ok: false, formError: 'One or more selected accounts are inactive or not in your organization' };
+      }
+    }
+    return { ok: false, formError: msg || 'Unable to post entry' };
+  }
+  revalidatePath('/journal');
+  revalidatePath(`/journal/${entryId}`);
+  return { ok: true, entryNumber: data as unknown as string };
+}
