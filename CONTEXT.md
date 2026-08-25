@@ -38,6 +38,18 @@ _Avoid_: Reference, Entry ID
 The document reference shown to the accountant, auto-suggested as the Entry Number at creation but editable (1–60 chars) and stored as `reference`.
 _Avoid_: Entry Number (use separately), Voucher No.
 
+**Trial Balance**:
+A per-account report of opening, period, and ending debits/credits with the invariant Total Ending Debits = Total Ending Credits; derived from posted lines only.
+_Avoid_: Trial Bal, TB
+
+**Income Statement**:
+A period report grouping INCOME as credits-debits and EXPENSE as debits-credits, with Net Income = Income - Expenses.
+_Avoid_: P&L, Profit and Loss (use Income Statement)
+
+**Balance Sheet**:
+An as-of report where Assets = debits-credits (ASSET), Liabilities/Equity = credits-debits, and Assets = Liabilities + Equity + Current Earnings via Income-Expenses through the date.
+_Avoid_: Statement of Financial Position (use Balance Sheet)
+
 **Import Batch**:
 The audit record of a CSV/XLSX import, tracking `file_name`, row counts, and per-row errors before any rows are committed.
 _Avoid_: Upload, Batch (alone)
