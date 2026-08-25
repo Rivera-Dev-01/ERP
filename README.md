@@ -93,7 +93,15 @@ For managed hosting, connect the repository to your provider and set the environ
 
 Import is CSV-only and atomic: any invalid row aborts the whole file and no rows or `import_batch` are created.
 
-## Known limitations (Phase 2)
+## What’s in Phase 3
 
-- Journal entries, posting/reversal, and financial reports are not yet implemented (Phases 3–4).
+- **Journal** — `/journal/new` and `/journal/[id]`: header (`entry_date` in OPEN period, `reference` trimmed 1–60, `description` 1–200) + keyboard line grid (Account picker for active accounts, Description, Debit xor Credit, Tax code; Tab/Enter/Esc/ArrowUp/Down; sticky totals; `isBalanced` via `decimal.js`).
+- **Draft lifecycle** — explicit **Save Draft** (validated Server Action, resolves `fiscal_period_id` via `BETWEEN` on OPEN period, computes totals with `toDbString`) + debounced auto-save, **Duplicate** (`-copy`) and **Delete** (DRAFT-only).
+- **Posting** — `post_journal_entry` RPC (`SECURITY DEFINER`, `FOR UPDATE` on `journal_entry_sequence` per-org) assigns `JE-YYYY-XXXX` (`YYYY` from `entry_date`, `XXXX` zero-padded `last_number+1`), sets `POSTED`/`posted_at`, writes `audit_event`; read-only view shows `JE-YYYY-XXXX`, Posted badge, no edit inputs.
+- **Reversal** — on POSTED entries: **Reverse** dialog with date picker (must be in OPEN period, default today) and swapped-lines preview (`debit↔credit`); `reverse_journal_entry` RPC creates `REVERSAL` entry (`Reversal of …`) and marks original `REVERSED`.
+- **Register** — `/journal` filterable by date range / status / account / free text; columns Entry Number (`JE-YYYY-XXXX` or `—` for DRAFT), Date, Reference, Description, Status, Total, Updated At.
+
+## Known limitations (Phase 3)
+
+- Financial reports are not yet implemented (Phase 4).
 - Single visible organization (schema is multi-org ready via `organization_id` + RLS).
