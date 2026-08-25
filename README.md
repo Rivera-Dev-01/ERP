@@ -85,7 +85,15 @@ For managed hosting, connect the repository to your provider and set the environ
 - All organization-owned tables are protected by PostgreSQL Row-Level Security; the application additionally checks organization membership on every request.
 - Secrets are never committed. Only `.env.example` and `.env.test.example` are tracked.
 
-## Known limitations (Phase 1)
+## What’s in Phase 2
 
-- Accounts, journal entries, imports, and reports are not yet implemented (Phases 2–5).
+- **Organization profile** at `/settings` — edit `name` + `legal_name`, other fields read-only.
+- **Fiscal periods** at `/settings/periods` — list, create OPEN period, close with confirmation; overlap blocked by DB constraint.
+- **Chart of Accounts** at `/accounts` — TanStack table (Code · Name · Type · Normal Balance · Active), validated create/edit, deactivation with “N journal lines use this” warning, and **atomic CSV import** with row-level error panel (`templates/chart-of-accounts.csv` is the template). The 6 canonical accounts are seeded automatically on first visit to `/accounts`.
+
+Import is CSV-only and atomic: any invalid row aborts the whole file and no rows or `import_batch` are created.
+
+## Known limitations (Phase 2)
+
+- Journal entries, posting/reversal, and financial reports are not yet implemented (Phases 3–4).
 - Single visible organization (schema is multi-org ready via `organization_id` + RLS).

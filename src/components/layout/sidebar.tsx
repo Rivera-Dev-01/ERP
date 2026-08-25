@@ -12,6 +12,8 @@ const NAV_ITEMS = [
   { href: '/reports/trial-balance', label: 'Reports' },
 ];
 
+const SECONDARY_NAV = [{ href: '/settings', label: 'Settings' }];
+
 export function Sidebar({ organizationName }: { organizationName: string }) {
   const pathname = usePathname();
 
@@ -38,6 +40,23 @@ export function Sidebar({ organizationName }: { organizationName: string }) {
           );
         })}
       </nav>
+      <div className="mt-auto flex flex-col gap-1 border-t pt-4">
+        {SECONDARY_NAV.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted',
+                active ? 'bg-muted font-medium' : 'text-muted-foreground',
+              )}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
     </aside>
   );
 }
