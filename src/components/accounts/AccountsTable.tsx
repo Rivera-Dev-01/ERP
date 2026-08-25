@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   createColumnHelper,
   flexRender,
@@ -9,7 +9,6 @@ import {
 } from '@tanstack/react-table';
 import type { Tables } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -21,62 +20,64 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { AccountForm } from '@/components/accounts/AccountForm';
+import { DeactivateConfirm } from '@/components/accounts/DeactivateConfirm';
 
 type Account = Tables<'account'>;
 
 const columnHelper = createColumnHelper<Account>();
 
-const columns = [
-  columnHelper.accessor('code', {
-    header: 'Code',
-    cell: (info) => info.getValue(),
-  }),
-  columnHelper.accessor('name', {
-    header: 'Account Name',
-    cell: (info) => info.getValue(),
-  }),
-  columnHelper.accessor('type', {
-    header: 'Type',
-    cell: (info) => <Badge variant="secondary">{info.getValue()}</Badge>,
-  }),
-  columnHelper.accessor('normal_balance', {
-    header: 'Normal Balance',
-    cell: (info) => <Badge variant="outline">{info.getValue()}</Badge>,
-  }),
-  columnHelper.accessor('is_active', {
-    header: 'Active',
-    cell: (info) => {
-      const v = info.getValue();
-      return (
-        <Badge
-          className={cn(v ? 'bg-emerald-100 text-emerald-900' : 'bg-muted text-muted-foreground')}
-        >
-          {v ? 'Active' : 'Inactive'}
-        </Badge>
-      );
-    },
-  }),
-  columnHelper.display({
-    id: 'actions',
-    header: 'Actions',
-    cell: (info) => {
-      const row = info.row.original;
-      return (
-        <div className="flex gap-1">
-          <AccountForm account={row} />
-          <Button variant="ghost" size="sm" disabled>
-            Deactivate
-          </Button>
-        </div>
-      );
-    },
-  }),
-];
-
 export function AccountsTable({ data }: { data: Account[] }) {
   const [globalFilter, setGlobalFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [activeFilter, setActiveFilter] = useState('ALL');
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor('code', {
+        header: 'Code',
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor('name', {
+        header: 'Account Name',
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor('type', {
+        header: 'Type',
+        cell: (info) => <Badge variant="secondary">{info.getValue()}</Badge>,
+      }),
+      columnHelper.accessor('normal_balance', {
+        header: 'Normal Balance',
+        cell: (info) => <Badge variant="outline">{info.getValue()}</Badge>,
+      }),
+      columnHelper.accessor('is_active', {
+        header: 'Active',
+        cell: (info) => {
+          const v = info.getValue();
+          return (
+            <Badge
+              className={cn(v ? 'bg-emerald-100 text-emerald-900' : 'bg-muted text-muted-foreground')}
+            >
+              {v ? 'Active' : 'Inactive'}
+            </Badge>
+          );
+        },
+      }),
+      columnHelper.display({
+        id: 'actions',
+        header: 'Actions',
+        cell: (info) => {
+          const row = info.row.original;
+          return (
+            <div className="flex gap-1">
+              <AccountForm account={row} />
+              <DeactivateConfirm accountId={row.id} disabled={!row.is_active} />
+            </div>
+          );
+        },
+      }),
+    ],
+    [],
+  );
 
   const filteredData = data.filter((row) => {
     if (typeFilter !== 'ALL' && row.type !== typeFilter) return false;

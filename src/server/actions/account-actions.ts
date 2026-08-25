@@ -7,6 +7,36 @@ import { accountSchema } from '@/lib/validation/account';
 
 type R = { ok: boolean; fieldErrors?: Record<string, string>; formError?: string };
 
+export async function deactivateAccount(
+  _prev: { ok: boolean; warningCount?: number; formError?: string },
+  formData: FormData,
+) {
+  const id = String(formData.get('id') ?? '');
+  const confirmed = String(formData.get('confirmed') ?? '') === 'true';
+  let ctx;
+  try {
+    ctx = await requireOrganizationAction();
+  } catch {
+    return { ok: false, formError: 'Not authorized' } as const;
+  }
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from('journal_line')
+    .select('id', { count: 'exact', head: true })
+    .eq('account_id', id);
+  const hasLines = (count ?? 0) > 0;
+  if (hasLines && !confirmed) return { ok: false, warningCount: count ?? 0 } as const;
+  const { error } = await supabase
+    .from('account')
+    .update({ is_active: false })
+    .eq('id', id)
+    .eq('organization_id', ctx.organization.id);
+  if (error)
+    return { ok: false, formError: 'Unable to deactivate account. Please try again.' } as const;
+  revalidatePath('/accounts');
+  return { ok: true } as const;
+}
+
 export async function upsertAccount(_prev: R, formData: FormData): Promise<R> {
   const isUpdate = !!String(formData.get('id') ?? '');
   const parsed = accountSchema.safeParse({
