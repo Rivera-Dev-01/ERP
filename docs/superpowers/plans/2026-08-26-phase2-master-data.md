@@ -1114,18 +1114,16 @@ export async function importAccountsCsv(
       } as const;
     return { ok: false, formError: 'Import failed. Please try again.' } as const;
   }
-  await supabase
-    .from('import_batch')
-    .insert({
-      organization_id: ctx.organization.id,
-      file_name: file.name,
-      import_type: 'CHART_OF_ACCOUNTS',
-      status: 'IMPORTED',
-      row_count: rows.length,
-      valid_row_count: rows.length,
-      invalid_row_count: 0,
-      created_by_id: ctx.profile.id,
-    });
+  await supabase.from('import_batch').insert({
+    organization_id: ctx.organization.id,
+    file_name: file.name,
+    import_type: 'CHART_OF_ACCOUNTS',
+    status: 'IMPORTED',
+    row_count: rows.length,
+    valid_row_count: rows.length,
+    invalid_row_count: 0,
+    created_by_id: ctx.profile.id,
+  });
   revalidatePath('/accounts');
   return { ok: true, rowCount: rows.length } as const;
 }
