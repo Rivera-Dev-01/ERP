@@ -3,12 +3,13 @@ import { requireOrganization } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { JournalForm } from '@/components/journal/JournalForm';
 import { PostConfirm } from '@/components/journal/PostConfirm';
+import { ReverseDialog } from '@/components/journal/ReverseDialog';
 import { formatEntryNumber } from '@/lib/validation/journal';
 import { formatBusinessDate, formatPHP } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { canPost } from '@/server/domain/journals';
+import { canPost, canReverse } from '@/server/domain/journals';
 
 export default async function JournalEntryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -99,7 +100,16 @@ export default async function JournalEntryPage({ params }: { params: Promise<{ i
             </Table>
           </CardContent>
         </Card>
-        {/* Reverse button slot for Task 3 */}
+        {canReverse(status) ? (
+          <div className="flex justify-end">
+            <ReverseDialog
+              entryId={id}
+              entryNumber={formatEntryNumber(e.entry_number, e.entry_date)}
+              lines={lines}
+              accounts={Array.from(accountMap.entries()).map(([accId, v]) => ({ id: accId, code: v.code, name: v.name }))}
+            />
+          </div>
+        ) : null}
       </div>
     );
   }

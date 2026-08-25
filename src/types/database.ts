@@ -510,6 +510,14 @@ export type Database = {
     }
     Functions: {
       post_journal_entry: { Args: { p_entry_id: string }; Returns: string }
+      reverse_journal_entry: {
+        Args: {
+          p_description?: string
+          p_entry_id: string
+          p_reversal_date: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       account_type: "ASSET" | "LIABILITY" | "EQUITY" | "INCOME" | "EXPENSE"

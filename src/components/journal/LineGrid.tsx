@@ -18,11 +18,12 @@ export type LineRow = {
 
 type Props = {
   accounts: Array<{ id: string; code: string; name: string }>;
-  value: LineRow[];
-  onValueChange: (lines: LineRow[]) => void;
+  value?: LineRow[];
+  onValueChange?: (lines: LineRow[]) => void;
   // alias props for flexibility (lines / onLinesChange)
   lines?: LineRow[];
   onLinesChange?: (lines: LineRow[]) => void;
+  readOnly?: boolean;
 };
 
 function blankRow(): LineRow {
@@ -49,6 +50,8 @@ export function LineGrid(props: Props) {
   );
 
   const containerRef = React.useRef<HTMLDivElement>(null);
+
+  const readOnly = props.readOnly === true;
 
   // Ensure we always have at least 2 rows for UX if empty? Keep as-is but helpers handle empty.
   const setLines = React.useCallback(
@@ -132,6 +135,51 @@ export function LineGrid(props: Props) {
     if (!totals.debitSum || !totals.creditSum) return '0.00';
     return totals.debitSum.minus(totals.creditSum).toFixed(2);
   })();
+
+  if (readOnly) {
+    const accountMap = React.useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+    return (
+      <div className="overflow-x-auto rounded-lg border" aria-label="Reversal preview">
+        <table className="w-full min-w-[600px] border-collapse text-sm">
+          <thead>
+            <tr className="bg-muted/50 text-left">
+              <th className="px-3 py-2 font-medium">Account</th>
+              <th className="px-3 py-2 font-medium">Description</th>
+              <th className="px-3 py-2 font-medium text-right">Debit</th>
+              <th className="px-3 py-2 font-medium text-right">Credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((row, idx) => {
+              const acct = accountMap.get(row.account_id);
+              const label = acct ? `${acct.code} — ${acct.name}` : row.account_id;
+              return (
+                <tr key={idx} className="border-t">
+                  <td className="px-3 py-2">{label}</td>
+                  <td className="px-3 py-2">{row.description}</td>
+                  <td className="px-3 py-2 text-right">{row.debit !== '0' && row.debit !== '' ? formatPHP(row.debit) : '—'}</td>
+                  <td className="px-3 py-2 text-right">{row.credit !== '0' && row.credit !== '' ? formatPHP(row.credit) : '—'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t bg-background font-medium">
+              <td colSpan={2} className="px-3 py-2 text-right">
+                Total
+              </td>
+              <td className="px-3 py-2 text-right">
+                <span aria-label="Total debit">{formatPHP(totalDebitStr)}</span>
+              </td>
+              <td className="px-3 py-2 text-right">
+                <span aria-label="Total credit">{formatPHP(totalCreditStr)}</span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    );
+  }
 
   const handleGridKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {

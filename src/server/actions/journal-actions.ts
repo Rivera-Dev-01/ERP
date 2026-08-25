@@ -181,3 +181,71 @@ export async function postJournalEntry(entryId: string): Promise<{ ok: boolean; 
   revalidatePath(`/journal/${entryId}`);
   return { ok: true, entryNumber: data as unknown as string };
 }
+
+export async function reverseJournalEntry(entryId: string, reversalDate: string, description?: string): Promise<{ ok: boolean; newId?: string; formError?: string }> {
+  let ctx;
+  try {
+    ctx = await requireOrganizationAction();
+  } catch {
+    return { ok: false, formError: 'Not authorized' };
+  }
+  const supabase = await createClient();
+  // inline open period validation for fast feedback (same BETWEEN pattern as upsert)
+  const { data: period } = await supabase
+    .from('fiscal_period')
+    .select('id')
+    .eq('organization_id', ctx.organization.id)
+    .eq('status', 'OPEN')
+    .lte('start_date', reversalDate)
+    .gte('end_date', reversalDate)
+    .maybeSingle();
+  if (!period) return { ok: false, formError: 'Reversal date not in any open period' };
+
+  const { data, error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>)(
+    'reverse_journal_entry',
+    { p_entry_id: entryId, p_reversal_date: reversalDate, p_description: description ?? null },
+  );
+  if (error) {
+    const msg = (error as { message?: string }).message ?? '';
+    const lower = msg.toLowerCase();
+    const code = (error as { code?: string }).code;
+    if (code === 'P0001') {
+      if (/open period/.test(lower)) {
+        return { ok: false, formError: 'Reversal date not in any open period' };
+      }
+      if (/already been reversed/.test(lower)) {
+        return { ok: false, formError: 'Entry has already been reversed' };
+      }
+      if (/only posted/.test(lower)) {
+        return { ok: false, formError: 'Only posted entries can be reversed' };
+      }
+      return { ok: false, formError: msg || 'Unable to reverse entry' };
+    }
+    return { ok: false, formError: msg || 'Unable to reverse entry' };
+  }
+  revalidatePath('/journal');
+  revalidatePath(`/journal/${entryId}`);
+  let newId: string | undefined;
+  if (typeof data === 'string' && data) {
+    if (/^JE-/.test(data)) {
+      const { data: found } = await supabase
+        .from('journal_entry')
+        .select('id')
+        .eq('reversal_of_id', entryId)
+        .order('posted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (found && typeof (found as { id: string }).id === 'string') {
+        newId = (found as { id: string }).id;
+      } else {
+        newId = data;
+      }
+    } else {
+      newId = data;
+    }
+  } else if (data && typeof data === 'object' && 'id' in (data as Record<string, unknown>)) {
+    newId = String((data as Record<string, unknown>).id);
+  }
+  if (newId) revalidatePath(`/journal/${newId}`);
+  return { ok: true, newId };
+}
