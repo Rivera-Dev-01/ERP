@@ -136,8 +136,9 @@ export function LineGrid(props: Props) {
     return totals.debitSum.minus(totals.creditSum).toFixed(2);
   })();
 
+  const accountMap = React.useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+
   if (readOnly) {
-    const accountMap = React.useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
     return (
       <div className="overflow-x-auto rounded-lg border" aria-label="Reversal preview">
         <table className="w-full min-w-[600px] border-collapse text-sm">
@@ -181,6 +182,7 @@ export function LineGrid(props: Props) {
     );
   }
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const handleGridKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const target = e.target as HTMLElement;

@@ -23,6 +23,7 @@ export function PostConfirm({ entryId, entryNumber }: { entryId: string; entryNu
   const display = entryNumber ?? 'JE-YYYY-XXXX';
   const [open, setOpen] = useState(false);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const boundAction = async (_prev: State, _formData: FormData): Promise<State> => {
     const res = await postJournalEntry(entryId);
     return res as State;
@@ -37,6 +38,7 @@ export function PostConfirm({ entryId, entryNumber }: { entryId: string; entryNu
       toast.error(state.formError);
     } else if (state.ok) {
       toast.success(state.entryNumber ? `Posted ${state.entryNumber}` : 'Entry posted');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false);
     }
   }, [state]);

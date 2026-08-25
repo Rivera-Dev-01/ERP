@@ -129,9 +129,9 @@ export function JournalForm({ accounts, suggestedReference, entry, mode }: Props
     if (s.formError) toast.error(s.formError);
     if (s.ok) {
       toast.success(isEdit ? 'Journal entry updated' : 'Journal entry created');
-      // when creating, the page will revalidate; optionally redirect handled by server revalidate
+      if (s.entryId && !isEdit) router.push(`/journal/${s.entryId}`);
     }
-  }, [state, setError, isEdit]);
+  }, [state, setError, isEdit, router]);
 
   // Auto-save: debounced 800ms on header + lines when valid and DRAFT
   const autoSaveRef = useRef<number | null>(null);

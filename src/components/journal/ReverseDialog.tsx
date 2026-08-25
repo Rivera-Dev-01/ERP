@@ -65,6 +65,7 @@ export function ReverseDialog({ entryId, entryNumber, lines, accounts = [] }: Re
       toast.error(state.formError);
     } else if (state.ok) {
       toast.success(state.newId ? 'Entry reversed' : 'Entry reversed');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false);
     }
   }, [state]);

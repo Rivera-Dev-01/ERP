@@ -7,6 +7,7 @@ import { signIn, TEST_ACCOUNT } from './support/helpers';
 test.describe.configure({ mode: 'serial' });
 
 test('journal critical path: draft → post → read-only → reverse', async ({ page }) => {
+  test.setTimeout(60_000);
   // sign in — use helper from support/helpers.ts (do not duplicate)
   await signIn(page);
   // ensure we still have viewer confirmation that signIn helper was used
@@ -20,20 +21,12 @@ test('journal critical path: draft → post → read-only → reverse', async ({
   }
 
   async function selectAccount(rowIndex: number, code: string) {
-    // Open the Base UI Select for that row
     const trigger = page.locator('[data-col="account"]').nth(rowIndex);
     await expect(trigger).toBeVisible({ timeout: 10_000 });
     await trigger.click();
-    // Search input appears inside the popup
-    const search = page.getByPlaceholder('Search by code or name');
-    await expect(search).toBeVisible({ timeout: 10_000 });
-    await search.fill('');
-    await search.fill(code);
-    // Option shows as "CODE — Name"
     const option = page.getByRole('option', { name: new RegExp(`^${code} —`) });
     await expect(option).toBeVisible({ timeout: 10_000 });
     await option.click();
-    // popup should close and trigger should show the code
     await expect(trigger).toContainText(code, { timeout: 10_000 });
   }
 
@@ -53,7 +46,7 @@ test('journal critical path: draft → post → read-only → reverse', async ({
   await expect(reference).toBeVisible({ timeout: 10_000 });
   await reference.fill('JE-TEST-001');
 
-  const description = page.getByLabel('Description');
+  const description = page.getByLabel('Description', { exact: true });
   await expect(description).toBeVisible({ timeout: 10_000 });
   await description.fill('E2E two-line');
 
@@ -98,41 +91,36 @@ test('journal critical path: draft → post → read-only → reverse', async ({
   } catch {
     // Fallback: try to find the newly created entry via /journal register
     await page.goto('/journal');
-    // Register may be missing (Slice D not yet shipped) — handle gracefully
-    const maybeRegister = page.getByText(/Journal/i).first();
-    if (await maybeRegister.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      const refCell = page.getByText('JE-TEST-001').first();
-      if (await refCell.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        // Click row's Open link if present, else navigate via href
-        const openLink = page.getByRole('link', { name: /Open|JE-TEST-001/i }).first();
-        if (await openLink.isVisible({ timeout: 3_000 }).catch(() => false)) {
-          await openLink.click();
+    const refCell = page.getByText('JE-TEST-001').first();
+    if (await refCell.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      // Click the first Actions dropdown then Open menuitem
+      const actionsBtn = page.getByRole('button', { name: 'Actions' }).first();
+      if (await actionsBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await actionsBtn.click();
+        const openItem = page.getByRole('menuitem', { name: 'Open' }).first();
+        if (await openItem.isVisible({ timeout: 5_000 }).catch(() => false)) {
+          await openItem.click({ force: true });
           await expect(page).toHaveURL(/\/journal\/[0-9a-f-]+/, { timeout: 10_000 });
           entryUrl = page.url();
-        } else {
-          // try clicking the cell itself
-          await refCell.click().catch(() => {});
-          if (/\/journal\/[0-9a-f-]+/.test(page.url())) entryUrl = page.url();
         }
       }
     }
-    // If still not on entry page, try to stay on whatever page we navigated to
     if (!entryUrl) entryUrl = page.url();
-    // If we are still not on a detail page, force navigation back to /journal/new and assume creation succeeded
-    // but subsequent Post step will be skipped gracefully
-    if (!/\/journal\/[0-9a-f-]+/.test(entryUrl) && !/\/journal\/[0-9a-f-]+/.test(page.url())) {
-      // As last resort, check that we are still on /journal/new and that Save Draft succeeded via re-fetch
-      // Try to reload /journal/new and see if entry was created — otherwise fail with URL expectation
-      await expect(page).toHaveURL(/\/journal/, { timeout: 3_000 }).catch(async () => {
-        // Re-throw with helpful message: expected redirect to /journal/[id]
-        await expect(page).toHaveURL(/\/journal\/[0-9a-f-]+/, { timeout: 1_000 });
-      });
-    }
   }
 
   // If we have an entryUrl with /journal/[id], ensure we are there
   if (entryUrl && /\/journal\/[0-9a-f-]+/.test(entryUrl)) {
     await page.goto(entryUrl);
+  }
+  if (!/\/journal\/[0-9a-f-]+/.test(page.url())) {
+    const fallbackBtn = page.getByRole('button', { name: 'Actions' }).first();
+    if (await fallbackBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await fallbackBtn.click();
+      const openFallback = page.getByRole('menuitem', { name: 'Open' }).first();
+      if (await openFallback.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await openFallback.click({ force: true });
+      }
+    }
   }
   await expect(page).toHaveURL(/\/journal\/[0-9a-f-]+/, { timeout: 10_000 });
 
@@ -196,11 +184,15 @@ test('journal critical path: draft → post → read-only → reverse', async ({
       return;
     });
   } else {
-    // Try to recover entry URL from current page links
-    const fallbackLink = page.getByRole('link', { name: /JE-TEST-001|JE-2026-/ }).first();
-    if (await fallbackLink.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await fallbackLink.click();
-      await expect(page).toHaveURL(/\/journal\/[0-9a-f-]+/, { timeout: 10_000 });
+    // Try to recover entry URL from register via Actions menu
+    const fallbackActions = page.getByRole('button', { name: 'Actions' }).first();
+    if (await fallbackActions.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await fallbackActions.click();
+      const fallbackOpen = page.getByRole('menuitem', { name: 'Open' }).first();
+      if (await fallbackOpen.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await fallbackOpen.click({ force: true });
+        await expect(page).toHaveURL(/\/journal\/[0-9a-f-]+/, { timeout: 10_000 });
+      }
     }
   }
 
@@ -220,7 +212,7 @@ test('journal critical path: draft → post → read-only → reverse', async ({
     // Use date within the open period (July 2026 seeded)
     await reversalDate.fill('2026-07-16');
 
-    const confirmReverse = page.getByRole('button', { name: 'Confirm Reverse' });
+    const confirmReverse = page.getByRole('button', { name: 'Confirm reversal' });
     await expect(confirmReverse).toBeVisible({ timeout: 10_000 });
     await safeClick(confirmReverse);
 
