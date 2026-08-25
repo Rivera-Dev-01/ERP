@@ -30,6 +30,14 @@ _Avoid_: Transaction, Voucher, Entry (alone) — always say Journal Entry
 One side of a Journal Entry. Carries exactly one positive amount — either `debit` or `credit` — referencing one active Account.
 _Avoid_: Line item, Entry detail
 
+**Entry Number**:
+The formatted system identifier `JE-YYYY-XXXX` assigned per organization at posting via a `FOR UPDATE` sequence; the numeric suffix is the stored `entry_number` for uniqueness.
+_Avoid_: Reference, Entry ID
+
+**Reference**:
+The document reference shown to the accountant, auto-suggested as the Entry Number at creation but editable (1–60 chars) and stored as `reference`.
+_Avoid_: Entry Number (use separately), Voucher No.
+
 **Import Batch**:
 The audit record of a CSV/XLSX import, tracking `file_name`, row counts, and per-row errors before any rows are committed.
 _Avoid_: Upload, Batch (alone)
