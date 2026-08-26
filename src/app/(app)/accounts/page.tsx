@@ -1,6 +1,5 @@
 import { requireOrganization } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
-import { seedDemoAccountsIfEmpty } from '@/server/actions/account-actions';
 import { AccountsTable } from '@/components/accounts/AccountsTable';
 import { CsvUpload } from '@/components/imports/CsvUpload';
 import { buttonVariants } from '@/components/ui/button';
@@ -21,7 +20,6 @@ export default async function AccountsPage({
     .eq('status', 'ACTIVE')
     .order('created_at', { ascending: true });
   const projectId = params.project ? String(params.project) : projects?.[0]?.id;
-  if (projectId) await seedDemoAccountsIfEmpty(projectId);
   const accountQuery = supabase.from('account').select('*').eq('organization_id', organization.id);
   const { data: accounts } = await (projectId ? accountQuery.eq('project_id', projectId) : accountQuery).order('code');
   return (
