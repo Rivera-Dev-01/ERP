@@ -14,7 +14,7 @@ import {
 import { ErrorPanel } from '@/components/imports/ErrorPanel';
 import { toast } from 'sonner';
 
-export function CsvUpload() {
+export function CsvUpload({ projectId }: { projectId?: string }) {
   const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [state, formAction, pending] = useActionState(
@@ -61,6 +61,7 @@ export function CsvUpload() {
           <DialogTitle>Import Chart of Accounts</DialogTitle>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
+          {projectId && <input type="hidden" name="project_id" value={projectId} />}
           <div className="space-y-2">
             <Label htmlFor="csv-file">CSV file</Label>
             <Input ref={fileRef} id="csv-file" name="file" type="file" accept=".csv" required />

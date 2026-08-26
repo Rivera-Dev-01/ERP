@@ -36,7 +36,7 @@ export default async function AccountsPage({
           >
             Download template
           </Link>
-          <CsvUpload />
+          {projectId ? <CsvUpload projectId={projectId} /> : null}
         </div>
       </div>
       <AccountsTable data={accounts ?? []} />

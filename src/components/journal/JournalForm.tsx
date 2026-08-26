@@ -41,6 +41,7 @@ type Props = {
   suggestedReference?: string;
   entry?: EntryData | null;
   mode?: 'create' | 'edit';
+  projectId?: string;
 };
 
 function toLineRow(l: EntryData['lines'][number]): LineRow {
@@ -57,7 +58,7 @@ function blankRow(): LineRow {
   return { account_id: '', description: '', debit: '0', credit: '0', tax_code: '' };
 }
 
-export function JournalForm({ accounts, suggestedReference, entry, mode }: Props) {
+export function JournalForm({ accounts, suggestedReference, entry, mode, projectId }: Props) {
   const router = useRouter();
   const isEdit = !!entry?.id;
   const entryStatus = entry?.status ?? 'DRAFT';
@@ -153,6 +154,7 @@ export function JournalForm({ accounts, suggestedReference, entry, mode }: Props
     autoSaveRef.current = window.setTimeout(async () => {
       const fd = new FormData();
       if (entry?.id) fd.set('id', entry.id);
+      if (projectId) fd.set('project_id', projectId);
       fd.set('entry_date', String(watched.entry_date ?? ''));
       fd.set('reference', String(watched.reference ?? ''));
       fd.set('description', String(watched.description ?? ''));
@@ -197,6 +199,7 @@ export function JournalForm({ accounts, suggestedReference, entry, mode }: Props
   return (
     <form action={formAction} className="space-y-6" aria-label="Journal form">
       {isEdit && <input type="hidden" name="id" value={entry!.id} />}
+      {projectId && <input type="hidden" name="project_id" value={projectId} />}
       <input type="hidden" name="lines_json" value={JSON.stringify(lines)} />
 
       <div className="grid gap-4 md:grid-cols-2">

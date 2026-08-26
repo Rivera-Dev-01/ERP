@@ -3,16 +3,24 @@ import { createClient } from '@/server/supabase/server';
 import { nextReferencePreview } from '@/lib/validation/journal';
 import { JournalForm } from '@/components/journal/JournalForm';
 
-export default async function NewJournalEntryPage() {
+export default async function NewJournalEntryPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | undefined>>;
+}) {
   const { organization } = await requireOrganization();
+  const params = searchParams ? await searchParams : {};
   const supabase = await createClient();
-
-  const { data: accounts } = await supabase
-    .from('account')
-    .select('*')
+  const { data: projects } = await supabase
+    .from('project')
+    .select('id')
     .eq('organization_id', organization.id)
-    .eq('is_active', true)
-    .order('code');
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: true });
+  const projectId = params.project ? String(params.project) : projects?.[0]?.id ?? '';
+
+  const accountQuery = supabase.from('account').select('*').eq('organization_id', organization.id).eq('is_active', true);
+  const { data: accounts } = await (projectId ? accountQuery.eq('project_id', projectId) : accountQuery).order('code');
 
   let suggestedReference = '';
   try {
@@ -25,5 +33,5 @@ export default async function NewJournalEntryPage() {
     suggestedReference = nextReferencePreview(0, today);
   }
 
-  return <JournalForm mode="create" accounts={accounts ?? []} suggestedReference={suggestedReference} />;
+  return <JournalForm mode="create" accounts={accounts ?? []} suggestedReference={suggestedReference} projectId={projectId} />;
 }
