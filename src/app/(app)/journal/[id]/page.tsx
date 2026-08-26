@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { requireOrganization } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { JournalForm } from '@/components/journal/JournalForm';
@@ -22,13 +22,28 @@ export default async function JournalEntryPage({ params, searchParams }: { param
     .eq('organization_id', organization.id)
     .eq('status', 'ACTIVE')
     .order('created_at', { ascending: true });
-  const projectId = sp.project ? String(sp.project) : projects?.[0]?.id ?? '';
+  const rawProject = sp.project ? String(sp.project) : undefined;
+  const projectId = rawProject ?? projects?.[0]?.id ?? '';
+
+  if (!projectId) notFound();
+
+  // Canonical: ensure ?project= present
+  if (!rawProject) {
+    redirect(`/journal/${id}?project=${projectId}`);
+  }
+
+  // Validate project belongs to org
+  const validIds = new Set((projects ?? []).map((p) => p.id));
+  if (!validIds.has(String(projectId))) {
+    redirect(`/journal/${id}?project=${projects?.[0]?.id ?? ''}`);
+  }
 
   const { data: entry } = await supabase
     .from('journal_entry')
     .select('*, journal_line(*)')
     .eq('id', id)
     .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
     .maybeSingle();
 
   if (!entry) notFound();
@@ -38,11 +53,11 @@ export default async function JournalEntryPage({ params, searchParams }: { param
   // POSTED or REVERSED -> read-only view
   if (status === 'POSTED' || status === 'REVERSED') {
     const lines = (entry as { journal_line: Array<{ id: string; account_id: string; description: string | null; debit: number; credit: number; tax_code: string | null; line_number: number }> }).journal_line ?? [];
-    // fetch account codes for display
+    // fetch account codes for display — strictly within project for correctness
     const accountIds = lines.map((l) => l.account_id);
     let accountMap = new Map<string, { code: string; name: string }>();
     if (accountIds.length) {
-      const { data: accounts } = await supabase.from('account').select('id,code,name').in('id', accountIds);
+      const { data: accounts } = await supabase.from('account').select('id,code,name').in('id', accountIds).eq('project_id', projectId);
       accountMap = new Map((accounts ?? []).map((a) => [a.id, { code: a.code, name: a.name }]));
     }
     const e = entry as {

@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { requireOrganization } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { CsvUpload } from '@/components/imports/CsvUpload';
@@ -20,6 +21,13 @@ export default async function ImportsPage({
     .eq('status', 'ACTIVE')
     .order('created_at', { ascending: true });
   const projectId = params.project ? String(params.project) : projects?.[0]?.id ?? '';
+  if (projectId && !params.project) {
+    redirect(`/imports?project=${projectId}`);
+  }
+  if (projectId && projects && !projects.some((p) => p.id === projectId)) {
+    const fallback = projects?.[0]?.id;
+    if (fallback) redirect(`/imports?project=${fallback}`);
+  }
   const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
 
   return (

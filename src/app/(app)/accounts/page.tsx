@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { requireOrganization } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { AccountsTable } from '@/components/accounts/AccountsTable';
@@ -15,17 +16,50 @@ export default async function AccountsPage({
   const supabase = await createClient();
   const { data: projects } = await supabase
     .from('project')
-    .select('id')
+    .select('id,name')
     .eq('organization_id', organization.id)
     .eq('status', 'ACTIVE')
     .order('created_at', { ascending: true });
   const projectId = params.project ? String(params.project) : projects?.[0]?.id;
-  const accountQuery = supabase.from('account').select('*').eq('organization_id', organization.id);
-  const { data: accounts } = await (projectId ? accountQuery.eq('project_id', projectId) : accountQuery).order('code');
+
+  if (!projectId) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Chart of Accounts</h1>
+          <Link href="/projects" className={buttonVariants({ variant: 'default' })}>Create Project</Link>
+        </div>
+        <div className="p-8 text-center text-muted-foreground">No projects yet. Create a project to manage accounts.</div>
+      </div>
+    );
+  }
+
+  if (!params.project) {
+    redirect(`/accounts?project=${projectId}`);
+  }
+
+  const validIds = new Set((projects ?? []).map((p) => p.id));
+  if (!validIds.has(String(projectId))) {
+    const fallback = projects?.[0]?.id;
+    if (fallback) redirect(`/accounts?project=${fallback}`);
+  }
+
+  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
+
+  const { data: accounts } = await supabase
+    .from('account')
+    .select('*')
+    .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
+    .order('code');
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Chart of Accounts</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Chart of Accounts</h1>
+          <p className="text-sm text-muted-foreground">Project: {projectName} — Code unique per Project</p>
+        </div>
         <div className="flex items-center gap-2">
           <Link
             href="/templates/chart-of-accounts.csv"
@@ -34,7 +68,7 @@ export default async function AccountsPage({
           >
             Download template
           </Link>
-          {projectId ? <CsvUpload projectId={projectId} /> : null}
+          <CsvUpload projectId={projectId} />
         </div>
       </div>
       <AccountsTable data={accounts ?? []} />

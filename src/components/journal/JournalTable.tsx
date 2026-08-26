@@ -54,9 +54,10 @@ function StatusBadge({ status }: { status: string }) {
 type Props = {
   data: JournalEntryRow[];
   accounts: AccountOption[];
+  projectId?: string;
 };
 
-export function JournalTable({ data, accounts }: Props) {
+export function JournalTable({ data, accounts, projectId }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -132,12 +133,12 @@ export function JournalTable({ data, accounts }: Props) {
       }
       toast.success('Journal entry duplicated');
       if (res.newId) {
-        router.push(`/journal/${res.newId}`);
+        router.push(projectId ? `/journal/${res.newId}?project=${projectId}` : `/journal/${res.newId}`);
       } else {
         router.refresh();
       }
     },
-    [router],
+    [projectId, router],
   );
 
   const handlePost = React.useCallback(
@@ -217,6 +218,7 @@ export function JournalTable({ data, accounts }: Props) {
           const row = info.row.original;
           const isDraft = row.status === 'DRAFT';
           const isPosted = row.status === 'POSTED';
+          const detailHref = projectId ? `/journal/${row.id}?project=${projectId}` : `/journal/${row.id}`;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -224,7 +226,7 @@ export function JournalTable({ data, accounts }: Props) {
               />
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => router.push(`/journal/${row.id}`)}
+                  onClick={() => router.push(detailHref)}
                 >
                   Open
                 </DropdownMenuItem>
@@ -242,8 +244,7 @@ export function JournalTable({ data, accounts }: Props) {
                 <DropdownMenuItem
                   onClick={() => {
                     // Reverse is only meaningful for POSTED; navigate to detail where ReverseDialog lives
-                    if (isPosted) router.push(`/journal/${row.id}`);
-                    else router.push(`/journal/${row.id}`);
+                    router.push(detailHref);
                   }}
                 >
                   Reverse
@@ -254,7 +255,7 @@ export function JournalTable({ data, accounts }: Props) {
         },
       }),
     ],
-    [handleDuplicate, handlePost, router],
+    [handleDuplicate, handlePost, projectId, router],
   );
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -351,7 +352,7 @@ export function JournalTable({ data, accounts }: Props) {
           )}
         </div>
 
-        <Link href="/journal/new" className="ml-auto">
+        <Link href={projectId ? `/journal/new?project=${projectId}` : '/journal/new'} className="ml-auto">
           <Button>New Journal Entry</Button>
         </Link>
       </div>
