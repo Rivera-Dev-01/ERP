@@ -54,6 +54,14 @@ export default async function BalanceSheetPage({
         filters={filtersLabel}
       />
       <FilterBar from={from} to={asOf} accounts={accounts ?? []} />
+      <div className="flex gap-2 py-2 print:hidden">
+        <a href={`/api/export/balance-sheet?format=csv&to=${asOf}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+          Export CSV
+        </a>
+        <a href={`/api/export/balance-sheet?format=xlsx&to=${asOf}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+          Export XLSX
+        </a>
+      </div>
       <div className="mt-4 space-y-4" data-balance-sheet>
         <div className="rounded-md border p-4">
           <h2 className="mb-2 text-sm font-semibold">Assets</h2>

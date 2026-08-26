@@ -104,6 +104,14 @@ export default async function TrialBalancePage({
         filters={filtersLabel}
       />
       <FilterBar from={from} to={to} accounts={accounts ?? []} />
+      <div className="flex gap-2 py-2 print:hidden">
+        <a href={`/api/export/trial-balance?format=csv&from=${from}&to=${to}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+          Export CSV
+        </a>
+        <a href={`/api/export/trial-balance?format=xlsx&from=${from}&to=${to}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+          Export XLSX
+        </a>
+      </div>
       <ReportTable data={rows} columns={columns} />
       <div className="mt-4 flex flex-wrap items-center gap-4 text-sm" data-trial-footer>
         <span>
