@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
@@ -137,17 +136,10 @@ export default async function IncomeStatementPage({
 
   type DisplayRow = (typeof incomeDisplay)[number];
 
-  const amountCell = (info: { getValue: () => unknown; row: { original: DisplayRow } }) => {
-    const v = String(info.getValue() ?? '—');
-    if (v === '—') return v;
-    const href = (info.row.original as DisplayRow)._href;
-    return <Link href={href} className="underline text-primary">{v}</Link>;
-  };
-
   const columns: ColumnDef<DisplayRow, unknown>[] = [
     { accessorKey: 'code', header: 'Code' },
     { accessorKey: 'name', header: 'Name' },
-    { accessorKey: 'amount', header: 'Amount', cell: amountCell as unknown as ColumnDef<DisplayRow, unknown>['cell'] },
+    { accessorKey: 'amount', header: 'Amount' },
     { accessorKey: 'prior', header: `Prior (${prior.from}–${prior.to})` },
   ];
 
@@ -175,14 +167,14 @@ export default async function IncomeStatementPage({
       <div className="space-y-6">
         <section>
           <h2 className="mb-2 text-sm font-semibold">Income</h2>
-          <ReportTable data={incomeDisplay} columns={columns} />
+          <ReportTable data={incomeDisplay} columns={columns} linkKeys={['amount']} />
           <p className="mt-2 text-sm">
             Total Income: <strong>{formatPHP(income)}</strong> <span className="text-muted-foreground">· Prior {formatPHP(priorRes.income)}</span>
           </p>
         </section>
         <section>
           <h2 className="mb-2 text-sm font-semibold">Expenses</h2>
-          <ReportTable data={expenseDisplay} columns={columns} />
+          <ReportTable data={expenseDisplay} columns={columns} linkKeys={['amount']} />
           <p className="mt-2 text-sm">
             Total Expenses: <strong>{formatPHP(expenses)}</strong> <span className="text-muted-foreground">· Prior {formatPHP(priorRes.expenses)}</span>
           </p>

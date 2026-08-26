@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
@@ -106,19 +105,13 @@ export default async function TrialBalancePage({
 
   type DisplayRow = (typeof displayRows)[number];
 
-  const linkCell = (info: { getValue: () => unknown; row: { original: DisplayRow } }) => {
-    const v = String(info.getValue() ?? '—');
-    if (v === '—') return v;
-    return <Link href={(info.row.original as DisplayRow)._href} className="underline text-primary">{v}</Link>;
-  };
-
   const columns: ColumnDef<DisplayRow, unknown>[] = [
-    { accessorKey: 'code', header: 'Code', cell: linkCell as unknown as ColumnDef<DisplayRow, unknown>['cell'] },
+    { accessorKey: 'code', header: 'Code' },
     { accessorKey: 'name', header: 'Name' },
     { accessorKey: 'opening', header: 'Opening' },
     { accessorKey: 'periodDebit', header: 'Period Debit' },
     { accessorKey: 'periodCredit', header: 'Period Credit' },
-    { accessorKey: 'ending', header: 'Ending', cell: linkCell as unknown as ColumnDef<DisplayRow, unknown>['cell'] },
+    { accessorKey: 'ending', header: 'Ending' },
   ];
 
   const filtersLabel = `company=${companyName}${accountIds ? ` account=${accountIds.join(',')}` : ''}`;
@@ -142,7 +135,7 @@ export default async function TrialBalancePage({
           Export XLSX
         </a>
       </div>
-      <ReportTable data={displayRows} columns={columns} />
+      <ReportTable data={displayRows} columns={columns} linkKeys={['code', 'ending']} />
       <div className="mt-4 flex flex-wrap items-center gap-4 text-sm" data-trial-footer>
         <span>
           Total Ending Debits: <strong>{formatPHP(totalEndingDebits)}</strong>
