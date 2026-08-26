@@ -261,6 +261,11 @@ describe.skipIf(!available)('account integration', () => {
       .eq('organization_id', seedOrgId);
     expect(count0).toBe(0);
 
+    // fetch default project for seed org (created via trigger)
+    const { data: seedProj } = await admin.from('project').select('id').eq('organization_id', seedOrgId).limit(1).maybeSingle();
+    const seedProjectId = seedProj?.id;
+    expect(seedProjectId).toBeDefined();
+
     const rows = [
       {
         code: '1000',
@@ -304,11 +309,11 @@ describe.skipIf(!available)('account integration', () => {
         normal_balance: 'DEBIT' as const,
         is_active: true,
       },
-    ].map((r) => ({ ...r, organization_id: seedOrgId }));
+    ].map((r) => ({ ...r, organization_id: seedOrgId, project_id: seedProjectId! }));
 
     const { error: err1 } = await admin
       .from('account')
-      .upsert(rows, { onConflict: 'organization_id,code', ignoreDuplicates: false });
+      .upsert(rows, { onConflict: 'project_id,code', ignoreDuplicates: false });
     expect(err1).toBeNull();
 
     const { count: count1 } = await admin
@@ -320,7 +325,7 @@ describe.skipIf(!available)('account integration', () => {
     // Re-run is idempotent
     const { error: err2 } = await admin
       .from('account')
-      .upsert(rows, { onConflict: 'organization_id,code', ignoreDuplicates: false });
+      .upsert(rows, { onConflict: 'project_id,code', ignoreDuplicates: false });
     expect(err2).toBeNull();
 
     const { count: count2 } = await admin
@@ -330,6 +335,7 @@ describe.skipIf(!available)('account integration', () => {
     expect(count2).toBe(6);
 
     await admin.from('account').delete().eq('organization_id', seedOrgId);
+    await admin.from('project').delete().eq('organization_id', seedOrgId);
     await admin.from('organization').delete().eq('id', seedOrgId);
   });
 });

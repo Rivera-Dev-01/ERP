@@ -11,10 +11,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { canPost, canReverse } from '@/server/domain/journals';
 
-export default async function JournalEntryPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function JournalEntryPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
+  const sp = searchParams ? await searchParams : {};
   const { organization } = await requireOrganization();
   const supabase = await createClient();
+  const { data: projects } = await supabase
+    .from('project')
+    .select('id')
+    .eq('organization_id', organization.id)
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: true });
+  const projectId = sp.project ? String(sp.project) : projects?.[0]?.id ?? '';
 
   const { data: entry } = await supabase
     .from('journal_entry')
@@ -116,12 +124,8 @@ export default async function JournalEntryPage({ params }: { params: Promise<{ i
 
   // DRAFT -> editable form + PostConfirm
   // Need active accounts for picker and entry prop
-  const { data: accounts } = await supabase
-    .from('account')
-    .select('*')
-    .eq('organization_id', organization.id)
-    .eq('is_active', true)
-    .order('code');
+  const accountQuery = supabase.from('account').select('*').eq('organization_id', organization.id).eq('is_active', true);
+  const { data: accounts } = await (projectId ? accountQuery.eq('project_id', projectId) : accountQuery).order('code');
 
   if (canPost(status)) {
     const e = entry as { entry_number: number | null; entry_date: string };
@@ -131,10 +135,10 @@ export default async function JournalEntryPage({ params }: { params: Promise<{ i
         <div className="flex justify-end">
           <PostConfirm entryId={id} entryNumber={display} />
         </div>
-        <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} />
+        <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} projectId={projectId} />
       </div>
     );
   }
 
-  return <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} />;
+  return <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} projectId={projectId} />;
 }

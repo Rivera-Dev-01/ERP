@@ -15,11 +15,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { useSearchParams } from 'next/navigation';
 import type { Tables } from '@/types/database';
 
 type Account = Tables<'account'>;
 
 export function AccountForm({ account }: { account?: Account | null }) {
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get('project') ?? '';
   const isEdit = !!account;
   const [open, setOpen] = useState(false);
 
@@ -90,6 +93,7 @@ export function AccountForm({ account }: { account?: Account | null }) {
         </DialogHeader>
         <form action={formAction} className="space-y-4">
           {isEdit && <input type="hidden" name="id" value={account!.id} />}
+          {projectId && <input type="hidden" name="project_id" value={projectId} />}
           <div className="space-y-2">
             <Label htmlFor={isEdit ? `code-${account!.id}` : 'code'}>Code</Label>
             <Input
