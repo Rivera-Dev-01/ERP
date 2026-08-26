@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { isBalanced } from '@/lib/money';
+import { Decimal } from 'decimal.js';
+import { isBalanced, toDbString, toDecimal } from '@/lib/money';
 
 const journalLineSchema = z
   .object({
@@ -77,6 +78,13 @@ export function sumLineAmounts(lines: Array<{ debit: string; credit: string }>):
   totalCredit: string;
   difference: string;
 } {
-  // Stub — Worker A replaces with decimal.js implementation
-  throw new Error('sumLineAmounts not implemented');
+  const zero = new Decimal(0);
+  const sumDebit = lines.reduce((acc, l) => acc.plus(toDecimal(l.debit || '0')), zero);
+  const sumCredit = lines.reduce((acc, l) => acc.plus(toDecimal(l.credit || '0')), zero);
+  const diff = sumDebit.minus(sumCredit);
+  return {
+    totalDebit: toDbString(sumDebit.toString()),
+    totalCredit: toDbString(sumCredit.toString()),
+    difference: toDbString(diff.toString()),
+  };
 }

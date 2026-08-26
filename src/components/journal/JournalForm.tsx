@@ -7,11 +7,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LineGrid, type LineRow } from '@/components/journal/LineGrid';
-import { journalSchema, type JournalInput } from '@/lib/validation/journal';
+import { formatPHP } from '@/lib/format';
+import { toDecimal } from '@/lib/money';
+import { journalSchema, sumLineAmounts, type JournalInput } from '@/lib/validation/journal';
 import {
   deleteJournalEntry,
   duplicateJournalEntry,
@@ -109,6 +112,34 @@ export function JournalForm({ accounts, suggestedReference, entry, mode, project
   };
   const isValid = journalSchema.safeParse(combinedForValidation).success;
 
+  // Sticky totals — derived from current lines state via shared sumLineAmounts arithmetic
+  const totals = React.useMemo(() => {
+    try {
+      return sumLineAmounts(lines.map((l) => ({ debit: l.debit || '0', credit: l.credit || '0' })));
+    } catch {
+      return { totalDebit: '0.0000', totalCredit: '0.0000', difference: '0.0000' };
+    }
+  }, [lines]);
+
+  const isBalancedViaSum = React.useMemo(() => {
+    try {
+      return toDecimal(totals.difference).isZero();
+    } catch {
+      return totals.difference === '0.0000';
+    }
+  }, [totals.difference]);
+
+  const hasPositiveTotal = React.useMemo(() => {
+    try {
+      return !toDecimal(totals.totalDebit).isZero() || !toDecimal(totals.totalCredit).isZero();
+    } catch {
+      return totals.totalDebit !== '0.0000' || totals.totalCredit !== '0.0000';
+    }
+  }, [totals.totalDebit, totals.totalCredit]);
+
+  const canPostViaSum = isBalancedViaSum && hasPositiveTotal && lines.length >= 2;
+  const isPostDisabled = !isValid || !canPostViaSum;
+
   const [state, formAction, pending] = useActionState(upsertJournalEntry, {
     ok: false,
   } as never);
@@ -193,6 +224,82 @@ export function JournalForm({ accounts, suggestedReference, entry, mode, project
     }
   };
 
+  // Keyboard nav: scoped to journal line inputs only, prevent default form submit on Enter
+  const journalGridRef = React.useRef<HTMLDivElement>(null);
+
+  const handleJournalKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      // Scope handler to journal line inputs only
+      if (!target.hasAttribute('data-grid-input')) return;
+
+      if (e.key === 'Enter') {
+        // prevent default form submit on Enter
+        e.preventDefault();
+        e.stopPropagation();
+        const inputs = Array.from(
+          journalGridRef.current?.querySelectorAll<HTMLElement>('[data-grid-input]') ?? [],
+        );
+        const idx = inputs.indexOf(target);
+        if (idx === -1) return;
+        if (e.shiftKey) {
+          // Shift+Enter goes back
+          if (idx > 0) {
+            inputs[idx - 1].focus();
+          }
+          return;
+        }
+        // Enter without Shift — move focus to next field in order: account -> description -> debit -> credit -> tax_code -> next row account
+        if (idx + 1 < inputs.length) {
+          inputs[idx + 1].focus();
+        } else {
+          // at last row last field — create new row via append and focus its account picker
+          const next = [...lines, blankRow()];
+          setLines(next);
+          requestAnimationFrame(() => {
+            const newInputs = journalGridRef.current?.querySelectorAll<HTMLElement>('[data-grid-input]');
+            if (!newInputs || newInputs.length === 0) return;
+            for (let i = newInputs.length - 1; i >= 0; i--) {
+              if (newInputs[i].getAttribute('data-col') === 'account') {
+                newInputs[i].focus();
+                break;
+              }
+            }
+          });
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const inputs = Array.from(
+          journalGridRef.current?.querySelectorAll<HTMLElement>('[data-grid-input]') ?? [],
+        );
+        const idx = inputs.indexOf(target);
+        if (idx === -1) return;
+        const col = target.getAttribute('data-col');
+        if (!col) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.key === 'ArrowDown') {
+          for (let i = idx + 1; i < inputs.length; i++) {
+            if (inputs[i].getAttribute('data-col') === col) {
+              inputs[i].focus();
+              break;
+            }
+          }
+        } else {
+          for (let i = idx - 1; i >= 0; i--) {
+            if (inputs[i].getAttribute('data-col') === col) {
+              inputs[i].focus();
+              break;
+            }
+          }
+        }
+      }
+    },
+    [lines],
+  );
+
   // Use mode prop to avoid unused warning
   const _mode = mode ?? (isEdit ? 'edit' : 'create');
 
@@ -268,14 +375,54 @@ export function JournalForm({ accounts, suggestedReference, entry, mode, project
         </p>
       )}
 
-      <LineGrid accounts={accounts} value={lines} onValueChange={setLines} />
+      <div ref={journalGridRef} onKeyDownCapture={handleJournalKeyDown}>
+        <LineGrid accounts={accounts} value={lines} onValueChange={setLines} />
+      </div>
+
+      {/* Sticky bottom footer — three columns Total Debit / Total Credit / Difference (formatPHP), Difference 0 => green Balanced badge else destructive */}
+      <div
+        className="sticky bottom-0 z-10 flex flex-col gap-2 border-t bg-background p-2 sm:grid sm:grid-cols-3 sm:items-center"
+        aria-label="Journal totals"
+      >
+        <div className="flex flex-col" aria-label="Total debit">
+          <span className="text-xs text-muted-foreground">Total Debit</span>
+          <span className="font-medium" data-testid="total-debit">
+            {formatPHP(totals.totalDebit)}
+          </span>
+        </div>
+        <div className="flex flex-col" aria-label="Total credit">
+          <span className="text-xs text-muted-foreground">Total Credit</span>
+          <span className="font-medium" data-testid="total-credit">
+            {formatPHP(totals.totalCredit)}
+          </span>
+        </div>
+        <div className="flex flex-col" aria-label="Difference">
+          <span className="text-xs text-muted-foreground">Difference</span>
+          <span className="flex items-center gap-2 font-medium" data-testid="difference">
+            <span>{formatPHP(totals.difference)}</span>
+            {isBalancedViaSum ? (
+              <Badge
+                variant="outline"
+                className="border-green-200 bg-green-50 text-green-700"
+                aria-label="Balanced"
+              >
+                Balanced
+              </Badge>
+            ) : (
+              <Badge variant="destructive" aria-label="Unbalanced">
+                Unbalanced {formatPHP(totals.difference)}
+              </Badge>
+            )}
+          </span>
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={pending} aria-label="Save Draft">
           {pending ? 'Saving…' : 'Save Draft'}
         </Button>
 
-        <Button type="button" variant="secondary" disabled={!isValid} aria-label="Post">
+        <Button type="button" variant="secondary" disabled={isPostDisabled} aria-label="Post">
           Post
         </Button>
 
