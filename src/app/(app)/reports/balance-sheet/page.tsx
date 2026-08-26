@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { requireOrganization } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { getBalanceSheet } from '@/server/reports/balance-sheet';
@@ -18,7 +19,7 @@ export default async function BalanceSheetPage({
 
   const { data: projects } = await supabase
     .from('project')
-    .select('id')
+    .select('id,name')
     .eq('organization_id', organization.id)
     .eq('status', 'ACTIVE')
     .order('created_at', { ascending: true });
@@ -39,6 +40,14 @@ export default async function BalanceSheetPage({
       </PrintLayout>
     );
   }
+  if (!params.project) {
+    const search = new URLSearchParams();
+    search.set('project', projectId);
+    if (params.to) search.set('to', String(params.to));
+    if (params.account) search.set('account', String(params.account));
+    redirect(`/reports/balance-sheet?${search.toString()}`);
+  }
+  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
 
   const { data: period } = await supabase
     .from('fiscal_period')
@@ -68,7 +77,7 @@ export default async function BalanceSheetPage({
     .eq('project_id', projectId)
     .order('code');
 
-  const filtersLabel = `project=${projectId}${accountIds ? ` account=${accountIds.join(',')}` : ''}`;
+  const filtersLabel = `project=${projectName}${accountIds ? ` account=${accountIds.join(',')}` : ''}`;
 
   return (
     <PrintLayout>

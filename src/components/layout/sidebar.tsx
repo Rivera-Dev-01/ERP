@@ -27,7 +27,16 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeProject = searchParams.get('project') ?? projects[0]?.id ?? '';
+  const paramProject = searchParams.get('project');
+  const activeProject = (paramProject && projects.some((p) => p.id === paramProject) ? paramProject : projects[0]?.id) ?? '';
+
+  const withProject = (href: string) => {
+    if (href === '/projects' || href === '/settings' || !activeProject) return href;
+    // Preserve project across tabs; keep existing query if already has project
+    const params = new URLSearchParams();
+    params.set('project', activeProject);
+    return `${href}?${params.toString()}`;
+  };
 
   return (
     <aside className="flex w-56 flex-col border-r bg-muted/30 p-4" data-sidebar>
@@ -42,7 +51,7 @@ export function Sidebar({
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={withProject(item.href)}
               className={cn(
                 'rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted',
                 active ? 'bg-muted font-medium' : 'text-muted-foreground',
