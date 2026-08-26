@@ -18,6 +18,7 @@ export type GeneralJournalRow = {
 
 export async function getGeneralJournal(opts: {
   organizationId: string;
+  projectId?: string;
   from: string;
   to: string;
   status: string;
@@ -30,16 +31,17 @@ export async function getGeneralJournal(opts: {
       ? ['POSTED', 'REVERSED', 'DRAFT']
       : ['POSTED', 'REVERSED'];
 
-  let query = supabase
+  let query: any = supabase
     .from('journal_line')
     .select(
-      'debit,credit,account!inner(code,name),journal_entry!inner(id,entry_number,reference,entry_date,description,status,organization_id)',
+      'debit,credit,account!inner(code,name),journal_entry!inner(id,entry_number,reference,entry_date,description,status,organization_id,project_id)',
     )
     .eq('journal_entry.organization_id', opts.organizationId)
     .in('journal_entry.status', allowed as unknown as never)
     .gte('journal_entry.entry_date', opts.from)
     .lte('journal_entry.entry_date', opts.to)
     .order('journal_entry.entry_date', { ascending: true });
+  if (opts.projectId) query = query.eq('journal_entry.project_id', opts.projectId);
 
   if (opts.accountIds?.length) {
     query = query.in('account_id', opts.accountIds);

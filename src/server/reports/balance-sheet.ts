@@ -5,6 +5,7 @@ import { toDecimal, toDbString } from '@/lib/money';
 
 export async function getBalanceSheet(opts: {
   organizationId: string;
+  projectId?: string;
   asOf: string;
   accountIds?: string[];
 }) {
@@ -12,6 +13,7 @@ export async function getBalanceSheet(opts: {
   const to = opts.asOf;
   const balances = await getBalances({
     organizationId: opts.organizationId,
+    projectId: opts.projectId,
     from,
     to,
     accountIds: opts.accountIds,
@@ -36,6 +38,7 @@ export async function getBalanceSheet(opts: {
     );
   const incomeStmt = await getIncomeStatement({
     organizationId: opts.organizationId,
+    projectId: opts.projectId,
     from,
     to,
     accountIds: opts.accountIds,

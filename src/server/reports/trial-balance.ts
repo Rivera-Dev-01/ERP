@@ -4,6 +4,7 @@ import { toDecimal, toDbString } from '@/lib/money';
 
 export async function getTrialBalance(opts: {
   organizationId: string;
+  projectId?: string;
   from: string;
   to: string;
   accountIds?: string[];

@@ -72,3 +72,33 @@ export async function requireOrganizationAction() {
   }
   return ctx;
 }
+
+export async function requireProject(organizationId: string, projectId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('project')
+    .select('*')
+    .eq('id', projectId)
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+  if (error || !data) {
+    throw new UnauthorizedError();
+  }
+  return data as Tables<'project'>;
+}
+
+export async function getActiveProjects(organizationId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('project')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: true });
+  return (data ?? []) as Array<Tables<'project'>>;
+}
+
+export async function getDefaultProjectId(organizationId: string): Promise<string | null> {
+  const projects = await getActiveProjects(organizationId);
+  return projects[0]?.id ?? null;
+}

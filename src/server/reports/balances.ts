@@ -25,6 +25,7 @@ export function computeBalance(
 
 export async function getBalances(opts: {
   organizationId: string;
+  projectId?: string;
   from: string; // YYYY-MM-DD inclusive
   to: string; // YYYY-MM-DD inclusive
   accountIds?: string[];
@@ -37,31 +38,33 @@ export async function getBalances(opts: {
   }>
 > {
   const supabase = await createClient();
-  const { data: accounts } = await supabase
-    .from('account')
-    .select('*')
-    .eq('organization_id', opts.organizationId)
-    .order('code');
+  let accountQuery = supabase.from('account').select('*').eq('organization_id', opts.organizationId);
+  if (opts.projectId) accountQuery = accountQuery.eq('project_id', opts.projectId);
+  const { data: accounts } = await accountQuery.order('code');
   if (!accounts) return [];
   const filteredAccounts = opts.accountIds?.length
     ? accounts.filter((a) => opts.accountIds!.includes(a.id))
     : accounts;
   // Fetch all journal_line joined via journal_entry where organization_id + status IN (...) + date filters
   // Opening: entry_date < from
-  const openingPromise = supabase
+  let openingQuery: any = supabase
     .from('journal_line')
-    .select('account_id,debit,credit,journal_entry!inner(entry_date,status,organization_id)')
+    .select('account_id,debit,credit,journal_entry!inner(entry_date,status,organization_id,project_id)')
     .eq('journal_entry.organization_id', opts.organizationId)
     .in('journal_entry.status', ['POSTED', 'REVERSED'])
     .lt('journal_entry.entry_date', opts.from);
+  if (opts.projectId) openingQuery = openingQuery.eq('journal_entry.project_id', opts.projectId);
+  const openingPromise = openingQuery;
   // Period: BETWEEN from AND to inclusive
-  const periodPromise = supabase
+  let periodQuery: any = supabase
     .from('journal_line')
-    .select('account_id,debit,credit,journal_entry!inner(entry_date,status,organization_id)')
+    .select('account_id,debit,credit,journal_entry!inner(entry_date,status,organization_id,project_id)')
     .eq('journal_entry.organization_id', opts.organizationId)
     .in('journal_entry.status', ['POSTED', 'REVERSED'])
     .gte('journal_entry.entry_date', opts.from)
     .lte('journal_entry.entry_date', opts.to);
+  if (opts.projectId) periodQuery = periodQuery.eq('journal_entry.project_id', opts.projectId);
+  const periodPromise = periodQuery;
 
   const [openingRes, periodRes] = await Promise.all([openingPromise, periodPromise]);
   const openingLines = (openingRes.data ?? []) as unknown as Array<{ account_id: string; debit: string; credit: string }>;
