@@ -9,10 +9,13 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/companies', label: 'Companies' },
   { href: '/settings/periods', label: 'Fiscal Periods' },
-  { href: '/accounts', label: 'Accounts' },
-  { href: '/journal', label: 'Journal' },
+  { href: '/accounts', label: 'Chart of Accounts' },
+  { href: '/journal', label: 'Journal Entries' },
   { href: '/imports', label: 'Imports' },
+  { href: '/reconciliation', label: 'Reconciliation' },
+  { href: '/workpapers', label: 'Workpapers' },
   { href: '/reports/trial-balance', label: 'Reports' },
+  { href: '/tax-center', label: 'Tax Center' },
   { href: '/activity', label: 'Activity' },
 ];
 
@@ -26,7 +29,6 @@ const REPORTS_SUBNAV = [
 ];
 
 const SECONDARY_NAV = [
-  { href: '/companies', label: 'Companies' },
   { href: '/settings', label: 'Settings' },
 ];
 

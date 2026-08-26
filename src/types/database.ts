@@ -263,6 +263,67 @@ export type Database = {
           },
         ]
       }
+      filing_status: {
+        Row: {
+          company_id: string
+          created_at: string
+          due_date: string
+          filed_at: string | null
+          form: string
+          id: string
+          organization_id: string
+          period_label: string
+          proof_attachment_id: string | null
+          status: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          due_date: string
+          filed_at?: string | null
+          form: string
+          id?: string
+          organization_id: string
+          period_label: string
+          proof_attachment_id?: string | null
+          status?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          due_date?: string
+          filed_at?: string | null
+          form?: string
+          id?: string
+          organization_id?: string
+          period_label?: string
+          proof_attachment_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "filing_status_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "filing_status_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organization"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "filing_status_proof_attachment_id_fkey"
+            columns: ["proof_attachment_id"]
+            isOneToOne: false
+            referencedRelation: "attachment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fiscal_period: {
         Row: {
           closed_at: string | null
@@ -687,6 +748,174 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      reconciliation: {
+        Row: {
+          account_id: string
+          company_id: string
+          created_at: string
+          created_by_id: string | null
+          end_date: string
+          id: string
+          organization_id: string
+          start_date: string
+          statement_balance: number
+          status: string
+        }
+        Insert: {
+          account_id: string
+          company_id?: string
+          created_at?: string
+          created_by_id?: string | null
+          end_date: string
+          id?: string
+          organization_id: string
+          start_date: string
+          statement_balance: number
+          status?: string
+        }
+        Update: {
+          account_id?: string
+          company_id?: string
+          created_at?: string
+          created_by_id?: string | null
+          end_date?: string
+          id?: string
+          organization_id?: string
+          start_date?: string
+          statement_balance?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_created_by_id_fkey"
+            columns: ["created_by_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organization"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_item: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          item_date: string
+          matched_line_id: string | null
+          reconciliation_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          id?: string
+          item_date: string
+          matched_line_id?: string | null
+          reconciliation_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          item_date?: string
+          matched_line_id?: string | null
+          reconciliation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_item_matched_line_id_fkey"
+            columns: ["matched_line_id"]
+            isOneToOne: false
+            referencedRelation: "journal_line"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_item_reconciliation_id_fkey"
+            columns: ["reconciliation_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliation"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workpaper_note: {
+        Row: {
+          company_id: string
+          id: string
+          notes: string
+          organization_id: string
+          period_end: string
+          schedule_key: string
+          updated_at: string
+          updated_by_id: string | null
+        }
+        Insert: {
+          company_id?: string
+          id?: string
+          notes?: string
+          organization_id: string
+          period_end: string
+          schedule_key: string
+          updated_at?: string
+          updated_by_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          notes?: string
+          organization_id?: string
+          period_end?: string
+          schedule_key?: string
+          updated_at?: string
+          updated_by_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workpaper_note_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workpaper_note_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organization"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workpaper_note_updated_by_id_fkey"
+            columns: ["updated_by_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
