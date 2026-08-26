@@ -8,7 +8,11 @@ import { isDuplicateError } from '@/server/domain/projects';
 
 type R = { ok: boolean; fieldErrors?: Record<string, string>; formError?: string; projectId?: string };
 
-export async function createProject(_prev: R, formData: FormData): Promise<R> {
+export async function createProject(prevOrData: R | FormData, maybeFormData?: FormData): Promise<R> {
+  const formData = maybeFormData instanceof FormData ? maybeFormData : prevOrData instanceof FormData ? prevOrData : undefined;
+  if (!formData || typeof (formData as FormData).get !== 'function') {
+    return { ok: false, formError: 'Missing form data' };
+  }
   const parsed = projectSchema.safeParse({
     name: String(formData.get('name') ?? ''),
     client_name: String(formData.get('client_name') ?? ''),
@@ -47,7 +51,11 @@ export async function createProject(_prev: R, formData: FormData): Promise<R> {
   return { ok: true, projectId: data!.id };
 }
 
-export async function updateProject(_prev: R, formData: FormData): Promise<R> {
+export async function updateProject(prevOrData: R | FormData, maybeFormData?: FormData): Promise<R> {
+  const formData = maybeFormData instanceof FormData ? maybeFormData : prevOrData instanceof FormData ? prevOrData : undefined;
+  if (!formData || typeof (formData as FormData).get !== 'function') {
+    return { ok: false, formError: 'Missing form data' };
+  }
   const id = String(formData.get('id') ?? '');
   if (!id) return { ok: false, formError: 'Missing project id' };
   const parsed = projectSchema.safeParse({
@@ -81,7 +89,11 @@ export async function updateProject(_prev: R, formData: FormData): Promise<R> {
   return { ok: true };
 }
 
-export async function archiveProject(_prev: R, formData: FormData): Promise<R> {
+export async function archiveProject(prevOrData: R | FormData, maybeFormData?: FormData): Promise<R> {
+  const formData = maybeFormData instanceof FormData ? maybeFormData : prevOrData instanceof FormData ? prevOrData : undefined;
+  if (!formData || typeof (formData as FormData).get !== 'function') {
+    return { ok: false, formError: 'Missing form data' };
+  }
   const id = String(formData.get('id') ?? '');
   if (!id) return { ok: false, formError: 'Missing project id' };
   let ctx;
