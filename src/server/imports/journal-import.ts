@@ -63,7 +63,7 @@ export function validateJournalGroups(
     if (!accountCode) {
       rowErrors.push({ row: rowNum, group, message: 'Account Code is required' });
     } else if (opts.accountMap && !opts.accountMap.has(accountCode)) {
-      rowErrors.push({ row: rowNum, group, message: `Account Code ${accountCode} not found or inactive in this project` });
+      rowErrors.push({ row: rowNum, group, message: `Account Code ${accountCode} not found or inactive in this company` });
     }
 
     // Validate debit/credit xor positive

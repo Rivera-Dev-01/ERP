@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization, getActiveProjects } from '@/server/auth';
+import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { getGeneralJournal } from '@/server/reports/general-journal';
 import { ReportHeader } from '@/components/reports/ReportHeader';
@@ -18,9 +18,10 @@ export default async function GeneralJournalPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const projects = await getActiveProjects(organization.id);
-  const projectId = params.project ? String(params.project) : projects?.[0]?.id;
-  if (!projectId) {
+  const companies = await getActiveCompanies(organization.id);
+  const rawCompany = params.company ?? params.project;
+  const companyId = rawCompany ? String(rawCompany) : companies?.[0]?.id;
+  if (!companyId) {
     return (
       <PrintLayout>
         <ReportHeader
@@ -31,14 +32,14 @@ export default async function GeneralJournalPage({
           generatedAt={new Date().toISOString()}
         />
         <div className="p-8 text-center text-muted-foreground">
-          No projects yet. <a href="/projects" className="underline">Create a project</a> to view reports.
+          No companies yet. <a href="/companies" className="underline">Create a company</a> to view reports.
         </div>
       </PrintLayout>
     );
   }
-  if (!params.project) {
+  if (params.project && !params.company) {
     const search = new URLSearchParams();
-    search.set('project', projectId);
+    search.set('company', companyId);
     if (params.from) search.set('from', String(params.from));
     if (params.to) search.set('to', String(params.to));
     if (params.account) search.set('account', String(params.account));
@@ -46,13 +47,23 @@ export default async function GeneralJournalPage({
     if (params.q) search.set('q', String(params.q));
     redirect(`/reports/general-journal?${search.toString()}`);
   }
-  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
+  if (!params.company) {
+    const search = new URLSearchParams();
+    search.set('company', companyId);
+    if (params.from) search.set('from', String(params.from));
+    if (params.to) search.set('to', String(params.to));
+    if (params.account) search.set('account', String(params.account));
+    if (params.status) search.set('status', String(params.status));
+    if (params.q) search.set('q', String(params.q));
+    redirect(`/reports/general-journal?${search.toString()}`);
+  }
+  const companyName = companies.find((p) => p.id === companyId)?.name ?? companyId;
 
   const { data: period } = await supabase
     .from('fiscal_period')
     .select('start_date,end_date')
     .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .eq('status', 'OPEN')
     .order('start_date', { ascending: false })
     .limit(1)
@@ -67,7 +78,7 @@ export default async function GeneralJournalPage({
   const [rows, accountsRes] = await Promise.all([
     getGeneralJournal({
       organizationId: organization.id,
-      projectId,
+      companyId,
       from,
       to,
       status,
@@ -78,7 +89,7 @@ export default async function GeneralJournalPage({
       .from('account')
       .select('id,code,name')
       .eq('organization_id', organization.id)
-      .eq('project_id', projectId)
+      .eq('company_id', companyId)
       .order('code'),
   ]);
   const accounts = accountsRes.data;
@@ -107,7 +118,7 @@ export default async function GeneralJournalPage({
     { accessorKey: 'status', header: 'Status' },
   ];
 
-  const filtersLabel = `project=${projectName} status=${status}${accountIds ? ` account=${accountIds.join(',')}` : ''}${q ? ` q=${q}` : ''}`;
+  const filtersLabel = `company=${companyName} status=${status}${accountIds ? ` account=${accountIds.join(',')}` : ''}${q ? ` q=${q}` : ''}`;
 
   return (
     <PrintLayout>
@@ -122,13 +133,13 @@ export default async function GeneralJournalPage({
       <FilterBar from={from} to={to} accounts={accounts ?? []} />
       <div className="flex gap-2 py-2 print:hidden">
         <a
-          href={`/api/export/general-journal?format=csv&from=${from}&to=${to}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
+          href={`/api/export/general-journal?format=csv&from=${from}&to=${to}&company=${companyId}${accountIds ? `&account=${accountIds.join(',')}` : ''}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
           className="text-sm underline"
         >
           Export CSV
         </a>
         <a
-          href={`/api/export/general-journal?format=xlsx&from=${from}&to=${to}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
+          href={`/api/export/general-journal?format=xlsx&from=${from}&to=${to}&company=${companyId}${accountIds ? `&account=${accountIds.join(',')}` : ''}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
           className="text-sm underline"
         >
           Export XLSX

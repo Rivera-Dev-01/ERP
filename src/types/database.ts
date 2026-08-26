@@ -42,41 +42,51 @@ export type Database = {
       account: {
         Row: {
           code: string
+          company_id: string
           created_at: string
           id: string
           is_active: boolean
+          is_cash: boolean
           name: string
           normal_balance: Database["public"]["Enums"]["normal_balance"]
           organization_id: string
-          project_id: string
           type: Database["public"]["Enums"]["account_type"]
           updated_at: string
         }
         Insert: {
           code: string
+          company_id?: string
           created_at?: string
           id?: string
           is_active?: boolean
+          is_cash?: boolean
           name: string
           normal_balance: Database["public"]["Enums"]["normal_balance"]
           organization_id: string
-          project_id?: string
           type: Database["public"]["Enums"]["account_type"]
           updated_at?: string
         }
         Update: {
           code?: string
+          company_id?: string
           created_at?: string
           id?: string
           is_active?: boolean
+          is_cash?: boolean
           name?: string
           normal_balance?: Database["public"]["Enums"]["normal_balance"]
           organization_id?: string
-          project_id?: string
           type?: Database["public"]["Enums"]["account_type"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "account_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "account_organization_id_fkey"
             columns: ["organization_id"]
@@ -84,62 +94,55 @@ export type Database = {
             referencedRelation: "organization"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "account_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "project"
-            referencedColumns: ["id"]
-          },
         ]
       }
       audit_event: {
         Row: {
           action: string
+          company_id: string | null
           created_at: string
           entity_id: string
           entity_type: string
           id: string
           metadata: Json | null
           organization_id: string
-          project_id: string | null
           user_id: string
         }
         Insert: {
           action: string
+          company_id?: string | null
           created_at?: string
           entity_id: string
           entity_type: string
           id?: string
           metadata?: Json | null
           organization_id: string
-          project_id?: string | null
           user_id: string
         }
         Update: {
           action?: string
+          company_id?: string | null
           created_at?: string
           entity_id?: string
           entity_type?: string
           id?: string
           metadata?: Json | null
           organization_id?: string
-          project_id?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "audit_event_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "audit_event_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organization"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "audit_event_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "project"
             referencedColumns: ["id"]
           },
           {
@@ -151,44 +154,86 @@ export type Database = {
           },
         ]
       }
+      company: {
+        Row: {
+          client_name: string | null
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          status: string
+        }
+        Insert: {
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          status?: string
+        }
+        Update: {
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organization"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fiscal_period: {
         Row: {
           closed_at: string | null
+          company_id: string
           created_at: string
           end_date: string
           id: string
           name: string
           organization_id: string
-          project_id: string
           start_date: string
           status: Database["public"]["Enums"]["fiscal_period_status"]
           updated_at: string
         }
         Insert: {
           closed_at?: string | null
+          company_id?: string
           created_at?: string
           end_date: string
           id?: string
           name: string
           organization_id: string
-          project_id?: string
           start_date: string
           status?: Database["public"]["Enums"]["fiscal_period_status"]
           updated_at?: string
         }
         Update: {
           closed_at?: string | null
+          company_id?: string
           created_at?: string
           end_date?: string
           id?: string
           name?: string
           organization_id?: string
-          project_id?: string
           start_date?: string
           status?: Database["public"]["Enums"]["fiscal_period_status"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fiscal_period_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fiscal_period_organization_id_fkey"
             columns: ["organization_id"]
@@ -196,17 +241,11 @@ export type Database = {
             referencedRelation: "organization"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fiscal_period_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "project"
-            referencedColumns: ["id"]
-          },
         ]
       }
       import_batch: {
         Row: {
+          company_id: string
           created_at: string
           created_by_id: string
           file_name: string
@@ -214,12 +253,12 @@ export type Database = {
           import_type: Database["public"]["Enums"]["import_type"]
           invalid_row_count: number
           organization_id: string
-          project_id: string
           row_count: number
           status: Database["public"]["Enums"]["import_batch_status"]
           valid_row_count: number
         }
         Insert: {
+          company_id?: string
           created_at?: string
           created_by_id: string
           file_name: string
@@ -227,12 +266,12 @@ export type Database = {
           import_type: Database["public"]["Enums"]["import_type"]
           invalid_row_count?: number
           organization_id: string
-          project_id?: string
           row_count?: number
           status?: Database["public"]["Enums"]["import_batch_status"]
           valid_row_count?: number
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by_id?: string
           file_name?: string
@@ -240,12 +279,18 @@ export type Database = {
           import_type?: Database["public"]["Enums"]["import_type"]
           invalid_row_count?: number
           organization_id?: string
-          project_id?: string
           row_count?: number
           status?: Database["public"]["Enums"]["import_batch_status"]
           valid_row_count?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "import_batch_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "import_batch_created_by_id_fkey"
             columns: ["created_by_id"]
@@ -260,17 +305,11 @@ export type Database = {
             referencedRelation: "organization"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "import_batch_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "project"
-            referencedColumns: ["id"]
-          },
         ]
       }
       journal_entry: {
         Row: {
+          company_id: string
           created_at: string
           created_by_id: string
           description: string
@@ -283,7 +322,6 @@ export type Database = {
           organization_id: string
           posted_at: string | null
           posted_by_id: string | null
-          project_id: string
           reference: string
           reversal_of_id: string | null
           status: Database["public"]["Enums"]["journal_status"]
@@ -292,6 +330,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string
           created_at?: string
           created_by_id: string
           description: string
@@ -304,7 +343,6 @@ export type Database = {
           organization_id: string
           posted_at?: string | null
           posted_by_id?: string | null
-          project_id?: string
           reference: string
           reversal_of_id?: string | null
           status?: Database["public"]["Enums"]["journal_status"]
@@ -313,6 +351,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by_id?: string
           description?: string
@@ -325,7 +364,6 @@ export type Database = {
           organization_id?: string
           posted_at?: string | null
           posted_by_id?: string | null
-          project_id?: string
           reference?: string
           reversal_of_id?: string | null
           status?: Database["public"]["Enums"]["journal_status"]
@@ -334,6 +372,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "journal_entry_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "journal_entry_created_by_id_fkey"
             columns: ["created_by_id"]
@@ -360,13 +405,6 @@ export type Database = {
             columns: ["posted_by_id"]
             isOneToOne: false
             referencedRelation: "profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "journal_entry_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "project"
             referencedColumns: ["id"]
           },
           {
@@ -454,6 +492,8 @@ export type Database = {
       }
       organization: {
         Row: {
+          address: string | null
+          branch_code: string | null
           created_at: string
           currency_code: string
           fiscal_year_start_month: number
@@ -467,6 +507,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address?: string | null
+          branch_code?: string | null
           created_at?: string
           currency_code?: string
           fiscal_year_start_month?: number
@@ -480,6 +522,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address?: string | null
+          branch_code?: string | null
           created_at?: string
           currency_code?: string
           fiscal_year_start_month?: number
@@ -553,41 +597,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      project: {
-        Row: {
-          client_name: string | null
-          created_at: string
-          id: string
-          name: string
-          organization_id: string
-          status: string
-        }
-        Insert: {
-          client_name?: string | null
-          created_at?: string
-          id?: string
-          name: string
-          organization_id: string
-          status?: string
-        }
-        Update: {
-          client_name?: string | null
-          created_at?: string
-          id?: string
-          name?: string
-          organization_id?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organization"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {

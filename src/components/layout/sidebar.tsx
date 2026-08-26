@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { ProjectSwitcher } from '@/components/layout/ProjectSwitcher';
+import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -15,34 +15,45 @@ const NAV_ITEMS = [
 ];
 
 const SECONDARY_NAV = [
-  { href: '/projects', label: 'Projects' },
+  { href: '/companies', label: 'Companies' },
   { href: '/settings', label: 'Settings' },
 ];
 
 export function Sidebar({
   organizationName,
+  companies,
   projects,
 }: {
   organizationName: string;
-  projects: Array<{ id: string; name: string; client_name?: string | null }>;
+  companies?: Array<{ id: string; name: string; client_name?: string | null }>;
+  projects?: Array<{ id: string; name: string; client_name?: string | null }>;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const paramProject = searchParams.get('project');
-  const activeProject = (paramProject && projects.some((p) => p.id === paramProject) ? paramProject : projects[0]?.id) ?? '';
+  const allCompanies = companies ?? projects ?? [];
+  const paramCompany = searchParams.get('company') ?? searchParams.get('project');
+  const activeCompany = (paramCompany && allCompanies.some((p) => p.id === paramCompany) ? paramCompany : allCompanies[0]?.id) ?? '';
 
-  const withProject = (href: string) => {
-    if (href === '/projects' || href === '/settings' || !activeProject) return href;
-    // Preserve project across tabs; keep existing query if already has project
+  const withCompany = (href: string) => {
+    if (href === '/companies' || href === '/projects' || href === '/settings' || !activeCompany) return href;
+    // Preserve company across tabs; keep existing query if already has company
     const params = new URLSearchParams();
-    params.set('project', activeProject);
+    params.set('company', activeCompany);
     return `${href}?${params.toString()}`;
   };
+
+  // Backwards compat alias
+  const withProject = withCompany;
+  const paramProject = paramCompany;
+  const activeProject = activeCompany;
+  void withProject;
+  void paramProject;
+  void activeProject;
 
   return (
     <aside className="flex w-56 flex-col border-r bg-muted/30 p-4" data-sidebar>
       <p className="mb-6 px-2 text-sm font-semibold">{organizationName}</p>
-      <ProjectSwitcher projects={projects} activeId={activeProject} />
+      <CompanySwitcher companies={allCompanies} activeId={activeCompany} />
       <nav className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const active =
@@ -52,7 +63,7 @@ export function Sidebar({
           return (
             <Link
               key={item.href}
-              href={withProject(item.href)}
+              href={withCompany(item.href)}
               className={cn(
                 'rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted',
                 active ? 'bg-muted font-medium' : 'text-muted-foreground',

@@ -26,22 +26,22 @@ export async function createFiscalPeriod(_prev: R, formData: FormData): Promise<
     return { ok: false, formError: 'Not authorized' };
   }
   const supabase = await createClient();
-  let projectId = String(formData.get('project_id') ?? '').trim();
-  if (!projectId) {
-    const { data: proj } = await supabase
-      .from('project')
+  let companyId = String(formData.get('company_id') ?? formData.get('project_id') ?? '').trim();
+  if (!companyId) {
+    const { data: comp } = await supabase
+      .from('company')
       .select('id')
       .eq('organization_id', ctx.organization.id)
       .eq('status', 'ACTIVE')
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
-    if (!proj) return { ok: false, formError: 'No project found. Create a project first.' };
-    projectId = proj.id;
+    if (!comp) return { ok: false, formError: 'No company found. Create a company first.' };
+    companyId = comp.id;
   }
   const { error } = await supabase.from('fiscal_period').insert({
     organization_id: ctx.organization.id,
-    project_id: projectId,
+    company_id: companyId,
     name: parsed.data.name,
     start_date: parsed.data.start_date,
     end_date: parsed.data.end_date,

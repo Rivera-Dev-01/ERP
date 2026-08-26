@@ -25,6 +25,7 @@ export function computeBalance(
 
 export async function getBalances(opts: {
   organizationId: string;
+  companyId?: string;
   projectId?: string;
   from: string; // YYYY-MM-DD inclusive
   to: string; // YYYY-MM-DD inclusive
@@ -38,8 +39,9 @@ export async function getBalances(opts: {
   }>
 > {
   const supabase = await createClient();
+  const companyId = opts.companyId ?? opts.projectId;
   let accountQuery = supabase.from('account').select('*').eq('organization_id', opts.organizationId);
-  if (opts.projectId) accountQuery = accountQuery.eq('project_id', opts.projectId);
+  if (companyId) accountQuery = accountQuery.eq('company_id', companyId);
   const { data: accounts } = await accountQuery.order('code');
   if (!accounts) return [];
   const filteredAccounts = opts.accountIds?.length
@@ -49,21 +51,21 @@ export async function getBalances(opts: {
   // Opening: entry_date < from
   let openingQuery: any = supabase
     .from('journal_line')
-    .select('account_id,debit,credit,journal_entry!inner(entry_date,status,organization_id,project_id)')
+    .select('account_id,debit,credit,journal_entry!inner(entry_date,status,organization_id,company_id)')
     .eq('journal_entry.organization_id', opts.organizationId)
     .in('journal_entry.status', ['POSTED', 'REVERSED'])
     .lt('journal_entry.entry_date', opts.from);
-  if (opts.projectId) openingQuery = openingQuery.eq('journal_entry.project_id', opts.projectId);
+  if (companyId) openingQuery = openingQuery.eq('journal_entry.company_id', companyId);
   const openingPromise = openingQuery;
   // Period: BETWEEN from AND to inclusive
   let periodQuery: any = supabase
     .from('journal_line')
-    .select('account_id,debit,credit,journal_entry!inner(entry_date,status,organization_id,project_id)')
+    .select('account_id,debit,credit,journal_entry!inner(entry_date,status,organization_id,company_id)')
     .eq('journal_entry.organization_id', opts.organizationId)
     .in('journal_entry.status', ['POSTED', 'REVERSED'])
     .gte('journal_entry.entry_date', opts.from)
     .lte('journal_entry.entry_date', opts.to);
-  if (opts.projectId) periodQuery = periodQuery.eq('journal_entry.project_id', opts.projectId);
+  if (companyId) periodQuery = periodQuery.eq('journal_entry.company_id', companyId);
   const periodPromise = periodQuery;
 
   const [openingRes, periodRes] = await Promise.all([openingPromise, periodPromise]);

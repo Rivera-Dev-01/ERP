@@ -24,14 +24,16 @@ export type GeneralLedgerResult = {
 
 export async function getGeneralLedger(opts: {
   organizationId: string;
+  companyId?: string;
   projectId?: string;
   accountId: string;
   from: string;
   to: string;
 }): Promise<GeneralLedgerResult> {
+  const companyId = opts.companyId ?? opts.projectId;
   const balances = await getBalances({
     organizationId: opts.organizationId,
-    projectId: opts.projectId,
+    companyId,
     from: opts.from,
     to: opts.to,
     accountIds: [opts.accountId],
@@ -51,14 +53,14 @@ export async function getGeneralLedger(opts: {
 
   let ledgerQuery: any = supabase
     .from('journal_line')
-    .select('debit,credit,journal_entry!inner(entry_date,entry_number,reference,description,status,organization_id,project_id)')
+    .select('debit,credit,journal_entry!inner(entry_date,entry_number,reference,description,status,organization_id,company_id)')
     .eq('account_id', opts.accountId)
     .eq('journal_entry.organization_id', opts.organizationId)
     .in('journal_entry.status', ['POSTED', 'REVERSED'])
     .gte('journal_entry.entry_date', opts.from)
     .lte('journal_entry.entry_date', opts.to)
     .order('journal_entry.entry_date', { ascending: true });
-  if (opts.projectId) ledgerQuery = ledgerQuery.eq('journal_entry.project_id', opts.projectId);
+  if (companyId) ledgerQuery = ledgerQuery.eq('journal_entry.company_id', companyId);
   const { data: lines } = await ledgerQuery;
 
   // signed opening: if side != normal, negated
@@ -93,7 +95,6 @@ export async function getGeneralLedger(opts: {
         credit: toDbString(credit.toString()),
         journal_entry: {
           entry_date: raw.journal_entry.entry_date,
-          entry_number: raw.journal_entry.entry_number,
           reference: raw.journal_entry.reference,
           description: raw.journal_entry.description,
           status: raw.journal_entry.status,

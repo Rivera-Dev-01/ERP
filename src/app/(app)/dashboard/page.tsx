@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { requireOrganization, getActiveProjects } from '@/server/auth';
+import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { add, toDecimal } from '@/lib/money';
 import { formatBusinessDate, formatPHP } from '@/lib/format';
@@ -17,40 +17,45 @@ export default async function DashboardPage({
   const params = searchParams ? await searchParams : {};
   const supabase = await createClient();
 
-  const projects = await getActiveProjects(organization.id);
+  const companies = await getActiveCompanies(organization.id);
 
-  const projectId = params.project ? String(params.project) : projects?.[0]?.id;
+  const rawCompany = params.company ?? params.project;
+  const companyId = rawCompany ? String(rawCompany) : companies?.[0]?.id;
 
-  if (!projectId) {
+  if (!companyId) {
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">No projects yet. Create a project to view totals.</p>
+          <p className="text-sm text-muted-foreground">No companies yet. Create a company to view totals.</p>
         </div>
-        <Link href="/projects" className={cn(buttonVariants())}>Create Project</Link>
+        <Link href="/companies" className={cn(buttonVariants())}>Create Company</Link>
       </div>
     );
   }
 
-  if (!params.project) {
-    redirect(`/dashboard?project=${projectId}`);
+  if (params.project && !params.company) {
+    redirect(`/dashboard?company=${companyId}`);
   }
 
-  const validIds = new Set((projects ?? []).map((p) => p.id));
-  if (!validIds.has(String(projectId))) {
-    const fallback = projects?.[0]?.id;
-    if (fallback) redirect(`/dashboard?project=${fallback}`);
+  if (!params.company) {
+    redirect(`/dashboard?company=${companyId}`);
   }
 
-  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
+  const validIds = new Set((companies ?? []).map((p) => p.id));
+  if (!validIds.has(String(companyId))) {
+    const fallback = companies?.[0]?.id;
+    if (fallback) redirect(`/dashboard?company=${fallback}`);
+  }
+
+  const companyName = companies?.find((p) => p.id === companyId)?.name ?? companyId;
 
   // Period-scoped totals: fetch open period first, then scope entries to its date range
   const { data: period } = await supabase
     .from('fiscal_period')
     .select('*')
     .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .eq('status', 'OPEN')
     .order('start_date', { ascending: false })
     .limit(1)
@@ -60,7 +65,7 @@ export default async function DashboardPage({
     .from('journal_entry')
     .select('status, total_debit, total_credit')
     .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .limit(200);
 
   if (period) {
@@ -83,14 +88,14 @@ export default async function DashboardPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Project: {projectName}</p>
+        <p className="text-sm text-muted-foreground">Company: {companyName}</p>
         {period ? (
           <p className="text-sm text-muted-foreground">
             {period.name} · {formatBusinessDate(period.start_date)} –{' '}
             {formatBusinessDate(period.end_date)}
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">No open fiscal period for this project.</p>
+          <p className="text-sm text-muted-foreground">No open fiscal period for this company.</p>
         )}
       </div>
 
@@ -150,13 +155,13 @@ export default async function DashboardPage({
       </div>
 
       <div className="flex gap-2">
-        <Link href={`/journal/new?project=${projectId}`} className={cn(buttonVariants())}>
+        <Link href={`/journal/new?company=${companyId}`} className={cn(buttonVariants())}>
           New Journal Entry
         </Link>
-        <Link href={`/imports?project=${projectId}`} className={cn(buttonVariants({ variant: 'outline' }))}>
+        <Link href={`/imports?company=${companyId}`} className={cn(buttonVariants({ variant: 'outline' }))}>
           Import Excel
         </Link>
-        <Link href={`/reports/trial-balance?project=${projectId}`} className={cn(buttonVariants({ variant: 'outline' }))}>
+        <Link href={`/reports/trial-balance?company=${companyId}`} className={cn(buttonVariants({ variant: 'outline' }))}>
           View Trial Balance
         </Link>
       </div>

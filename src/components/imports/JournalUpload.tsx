@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 
 type Preview = { headers: string[]; rows: Array<Record<string, string>>; rowCount: number; totalDebit: string | null; totalCredit: string | null } | null;
 
-export function JournalUpload({ projectId }: { projectId: string }) {
+export function JournalUpload({ companyId, projectId }: { companyId?: string; projectId?: string }) {
   const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<Preview>(null);
@@ -67,7 +67,7 @@ export function JournalUpload({ projectId }: { projectId: string }) {
           <DialogTitle>Import Journal Entries</DialogTitle>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
-          <input type="hidden" name="project_id" value={projectId} />
+          <input type="hidden" name="company_id" value={companyId ?? projectId ?? ''} />
           <div className="space-y-2">
             <Label htmlFor="journal-file">CSV/XLSX file</Label>
             <Input ref={fileRef} id="journal-file" name="file" type="file" accept=".csv,.xlsx,.xls" required onChange={onFileChange} />

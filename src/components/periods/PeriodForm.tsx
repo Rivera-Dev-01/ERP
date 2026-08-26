@@ -19,7 +19,7 @@ import { useSearchParams } from 'next/navigation';
 
 export function PeriodForm() {
   const searchParams = useSearchParams();
-  const projectId = searchParams.get('project') ?? '';
+  const companyId = searchParams.get('company') ?? searchParams.get('project') ?? '';
   const [open, setOpen] = useState(false);
   const {
     register,
@@ -58,7 +58,7 @@ export function PeriodForm() {
           <DialogTitle>New Fiscal Period</DialogTitle>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
-          {projectId && <input type="hidden" name="project_id" value={projectId} />}
+          {companyId && <input type="hidden" name="company_id" value={companyId} />}
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" {...register('name')} name="name" />

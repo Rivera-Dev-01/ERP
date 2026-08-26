@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { requireOrganization, getActiveProjects } from '@/server/auth';
+import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { JournalTable, type JournalEntryRow } from '@/components/journal/JournalTable';
 import { buttonVariants } from '@/components/ui/button';
@@ -26,36 +26,36 @@ export default async function JournalPage({
   const fromRaw = getFirst(params.from ?? params.date_from ?? params.start_date ?? params.start);
   const toRaw = getFirst(params.to ?? params.date_to ?? params.end_date ?? params.end);
   const accountRaw = getFirst(params.account ?? params.account_id ?? params.accountId);
+  const companyRaw = getFirst(params.company ?? params.project);
   const projectRaw = getFirst(params.project);
   const pageRaw = getFirst(params.page);
   const page = Math.max(1, parseInt(String(pageRaw ?? '1'), 10) || 1);
   const pageSize = 50;
 
-  const projects = await getActiveProjects(organization.id);
+  const companies = await getActiveCompanies(organization.id);
 
-  const projectId = projectRaw ? String(projectRaw) : projects?.[0]?.id;
+  const companyId = companyRaw ? String(companyRaw) : companies?.[0]?.id;
 
-  if (!projectId) {
+  if (!companyId) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Journal</h1>
-          <Link href="/projects" className={buttonVariants({ variant: 'default' })}>
-            Create Project
+          <Link href="/companies" className={buttonVariants({ variant: 'default' })}>
+            Create Company
           </Link>
         </div>
         <div className="p-8 text-center text-muted-foreground">
-          No projects yet. <Link href="/projects" className="underline">Create a project</Link> to view journal entries.
+          No companies yet. <Link href="/companies" className="underline">Create a company</Link> to view journal entries.
         </div>
       </div>
     );
   }
 
-  // Validate ?project= is ACTIVE for this org; if stale, redirect to canonical
-  const validIds = new Set((projects ?? []).map((p) => p.id));
-  if (projectRaw && !validIds.has(String(projectRaw))) {
+  // Backwards compat: if old ?project= present without ?company=, redirect to ?company=
+  if (projectRaw && !params.company) {
     const qs = new URLSearchParams();
-    qs.set('project', projectId);
+    qs.set('company', companyId);
     if (statusRaw) qs.set('status', String(statusRaw));
     if (qRaw) qs.set('q', String(qRaw));
     if (fromRaw) qs.set('from', String(fromRaw));
@@ -64,9 +64,11 @@ export default async function JournalPage({
     redirect(`/journal?${qs.toString()}`);
   }
 
-  if (!projectRaw) {
+  // Validate ?company= is ACTIVE for this org; if stale, redirect to canonical
+  const validIds = new Set((companies ?? []).map((p) => p.id));
+  if (companyRaw && !validIds.has(String(companyRaw))) {
     const qs = new URLSearchParams();
-    qs.set('project', projectId);
+    qs.set('company', companyId);
     if (statusRaw) qs.set('status', String(statusRaw));
     if (qRaw) qs.set('q', String(qRaw));
     if (fromRaw) qs.set('from', String(fromRaw));
@@ -75,25 +77,36 @@ export default async function JournalPage({
     redirect(`/journal?${qs.toString()}`);
   }
 
-  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
+  if (!companyRaw) {
+    const qs = new URLSearchParams();
+    qs.set('company', companyId);
+    if (statusRaw) qs.set('status', String(statusRaw));
+    if (qRaw) qs.set('q', String(qRaw));
+    if (fromRaw) qs.set('from', String(fromRaw));
+    if (toRaw) qs.set('to', String(toRaw));
+    if (accountRaw) qs.set('account', String(accountRaw));
+    redirect(`/journal?${qs.toString()}`);
+  }
+
+  const companyName = companies.find((p) => p.id === companyId)?.name ?? companyId;
 
   // Accounts are needed for filter dropdown — fetch in parallel with entries
   const accountsPromise = supabase
     .from('account')
     .select('id,code,name')
     .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .eq('is_active', true)
     .order('code');
 
-  // Build base query — strictly per Project (fresh project shows 0), paginated
+  // Build base query — strictly per Company (fresh company shows 0), paginated
   // Use `any` to avoid Supabase type narrowing issues with chained .in/.or/.gte
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = supabase
     .from('journal_entry')
-    .select('id,entry_number,entry_date,reference,description,status,total_debit,total_credit,created_at,updated_at,project_id')
+    .select('id,entry_number,entry_date,reference,description,status,total_debit,total_credit,created_at,updated_at,company_id')
     .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .order('entry_date', { ascending: false })
     .range((page - 1) * pageSize, page * pageSize - 1);
 
@@ -136,7 +149,7 @@ export default async function JournalPage({
     if (ids.length === 0) {
       entries = [];
     } else {
-      // Preserve pagination: still respect project filter already in query, add id filter
+      // Preserve pagination: still respect company filter already in query, add id filter
       const { data } = await query.in('id', ids.slice(0, pageSize));
       entries = (data ?? []) as unknown as JournalEntryRow[];
     }
@@ -157,13 +170,13 @@ export default async function JournalPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Journal</h1>
-          <p className="text-sm text-muted-foreground">Project: {projectName}</p>
+          <p className="text-sm text-muted-foreground">Company: {companyName}</p>
         </div>
-        <Link href={`/journal/new?project=${projectId}`} className={buttonVariants({ variant: 'default' })}>
+        <Link href={`/journal/new?company=${companyId}`} className={buttonVariants({ variant: 'default' })}>
           New Journal Entry
         </Link>
       </div>
-      <JournalTable data={mapped} accounts={accounts ?? []} projectId={projectId} />
+      <JournalTable data={mapped} accounts={accounts ?? []} companyId={companyId} />
     </div>
   );
 }

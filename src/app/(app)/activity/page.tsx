@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization, getActiveProjects } from '@/server/auth';
+import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { formatBusinessDate } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
@@ -14,39 +14,44 @@ export default async function ActivityPage({
   const { organization } = await requireOrganization();
   const params = searchParams ? await searchParams : {};
   const supabase = await createClient();
-  const projects = await getActiveProjects(organization.id);
-  const projectId = params.project ? String(params.project) : projects?.[0]?.id;
+  const companies = await getActiveCompanies(organization.id);
+  const rawCompany = params.company ?? params.project;
+  const companyId = rawCompany ? String(rawCompany) : companies?.[0]?.id;
   const page = Math.max(1, parseInt(String(params.page ?? '1'), 10) || 1);
   const pageSize = 50;
 
-  if (!projectId) {
+  if (!companyId) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Activity</h1>
-        <p className="text-sm text-muted-foreground">No projects yet. Create a project to view activity.</p>
-        <Link href="/projects" className="text-sm underline">Go to Projects</Link>
+        <p className="text-sm text-muted-foreground">No companies yet. Create a company to view activity.</p>
+        <Link href="/companies" className="text-sm underline">Go to Companies</Link>
       </div>
     );
   }
 
-  if (!params.project) {
-    redirect(`/activity?project=${projectId}`);
+  if (params.project && !params.company) {
+    redirect(`/activity?company=${companyId}`);
   }
 
-  const validIds = new Set(projects.map((p) => p.id));
-  if (!validIds.has(String(projectId))) {
-    const fallback = projects[0]?.id;
-    if (fallback) redirect(`/activity?project=${fallback}`);
+  if (!params.company) {
+    redirect(`/activity?company=${companyId}`);
   }
 
-  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
+  const validIds = new Set(companies.map((p) => p.id));
+  if (!validIds.has(String(companyId))) {
+    const fallback = companies[0]?.id;
+    if (fallback) redirect(`/activity?company=${fallback}`);
+  }
 
-  // Fetch audit events per project, most recent first, paginated
+  const companyName = companies.find((p) => p.id === companyId)?.name ?? companyId;
+
+  // Fetch audit events per company, most recent first, paginated
   const { data: events, count } = await supabase
     .from('audit_event')
-    .select('id,action,entity_type,entity_id,metadata,created_at,user_id,project_id', { count: 'exact' })
+    .select('id,action,entity_type,entity_id,metadata,created_at,user_id,company_id', { count: 'exact' })
     .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .order('created_at', { ascending: false })
     .range((page - 1) * pageSize, page * pageSize - 1);
 
@@ -65,7 +70,7 @@ export default async function ActivityPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Activity</h1>
-        <p className="text-sm text-muted-foreground">Project: {projectName} — recent posting, reversal, and import activity</p>
+        <p className="text-sm text-muted-foreground">Company: {companyName} — recent posting, reversal, and import activity</p>
         <p className="text-xs text-muted-foreground">Total events: {total} · Page {page} of {totalPages}</p>
       </div>
 
@@ -116,7 +121,7 @@ export default async function ActivityPage({
                   })
                 ) : (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">No activity yet for this project. Post a journal entry to see it here.</td>
+                    <td colSpan={5} className="p-8 text-center text-muted-foreground">No activity yet for this company. Post a journal entry to see it here.</td>
                   </tr>
                 )}
               </tbody>
@@ -125,8 +130,8 @@ export default async function ActivityPage({
           <div className="flex items-center justify-between border-t p-2 text-xs">
             <span className="text-muted-foreground">{total} events</span>
             <div className="flex gap-2">
-              {page > 1 ? <Link href={`/activity?project=${projectId}&page=${page-1}`} className="underline">Prev</Link> : <span className="text-muted-foreground">Prev</span>}
-              {page < totalPages ? <Link href={`/activity?project=${projectId}&page=${page+1}`} className="underline">Next</Link> : <span className="text-muted-foreground">Next</span>}
+              {page > 1 ? <Link href={`/activity?company=${companyId}&page=${page-1}`} className="underline">Prev</Link> : <span className="text-muted-foreground">Prev</span>}
+              {page < totalPages ? <Link href={`/activity?company=${companyId}&page=${page+1}`} className="underline">Next</Link> : <span className="text-muted-foreground">Next</span>}
             </div>
           </div>
         </CardContent>

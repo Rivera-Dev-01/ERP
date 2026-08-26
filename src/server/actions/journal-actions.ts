@@ -29,33 +29,33 @@ export async function upsertJournalEntry(_prev: R, formData: FormData): Promise<
     return { ok: false, formError: 'Not authorized' };
   }
   const supabase = await createClient();
-  let projectId = String(formData.get('project_id') ?? '').trim();
-  if (!projectId) {
-    const { data: proj } = await supabase
-      .from('project')
+  let companyId = String(formData.get('company_id') ?? formData.get('project_id') ?? '').trim();
+  if (!companyId) {
+    const { data: comp } = await supabase
+      .from('company')
       .select('id')
       .eq('organization_id', ctx.organization.id)
       .eq('status', 'ACTIVE')
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
-    if (!proj) return { ok: false, formError: 'No project found. Create a project first.' };
-    projectId = proj.id;
+    if (!comp) return { ok: false, formError: 'No company found. Create a company first.' };
+    companyId = comp.id;
   }
-  // resolve fiscal_period_id for entry_date in an OPEN period for that project
+  // resolve fiscal_period_id for entry_date in an OPEN period for that company
   const { data: period } = await supabase
     .from('fiscal_period')
     .select('id')
     .eq('organization_id', ctx.organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .eq('status', 'OPEN')
     .lte('start_date', parsed.data.entry_date)
     .gte('end_date', parsed.data.entry_date)
     .maybeSingle();
   if (!period) return { ok: false, fieldErrors: { entry_date: 'Date not in any open period' } };
-  // validate active accounts in that project
+  // validate active accounts in that company
   const accountIds = parsed.data.lines.map((l) => l.account_id);
-  const { data: accounts } = await supabase.from('account').select('id,is_active,project_id').in('id', accountIds).eq('organization_id', ctx.organization.id).eq('project_id', projectId);
+  const { data: accounts } = await supabase.from('account').select('id,is_active,company_id').in('id', accountIds).eq('organization_id', ctx.organization.id).eq('company_id', companyId);
   const activeMap = new Map((accounts ?? []).map((a) => [a.id, a.is_active]));
   for (const l of parsed.data.lines) if (!activeMap.get(l.account_id)) return { ok: false, formError: 'One or more selected accounts are inactive or not in your organization' };
   // compute totals
@@ -64,7 +64,7 @@ export async function upsertJournalEntry(_prev: R, formData: FormData): Promise<
   const entryId = String(formData.get('id') ?? '').trim();
   const payload = {
     organization_id: ctx.organization.id,
-    project_id: projectId,
+    company_id: companyId,
     fiscal_period_id: period.id,
     entry_date: parsed.data.entry_date,
     reference: parsed.data.reference.trim(),
@@ -135,7 +135,7 @@ export async function duplicateJournalEntry(entryId: string): Promise<{ ok: bool
     .from('journal_entry')
     .insert({
       organization_id: entry.organization_id,
-      project_id: entry.project_id,
+      company_id: (entry as unknown as { company_id: string }).company_id,
       fiscal_period_id: entry.fiscal_period_id,
       entry_date: entry.entry_date,
       reference: `${entry.reference}-copy`,

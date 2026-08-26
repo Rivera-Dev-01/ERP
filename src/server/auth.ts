@@ -75,32 +75,37 @@ export async function requireOrganizationAction() {
   return ctx;
 }
 
-export async function requireProject(organizationId: string, projectId: string) {
+export async function requireCompany(organizationId: string, companyId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from('project')
+    .from('company')
     .select('*')
-    .eq('id', projectId)
+    .eq('id', companyId)
     .eq('organization_id', organizationId)
     .maybeSingle();
   if (error || !data) {
     throw new UnauthorizedError();
   }
-  return data as Tables<'project'>;
+  return data as Tables<'company'>;
 }
 
-export const getActiveProjects = cache(async (organizationId: string) => {
+export const getActiveCompanies = cache(async (organizationId: string) => {
   const supabase = await createClient();
   const { data } = await supabase
-    .from('project')
+    .from('company')
     .select('id,name,client_name,status,created_at')
     .eq('organization_id', organizationId)
     .eq('status', 'ACTIVE')
     .order('created_at', { ascending: true });
-  return (data ?? []) as Array<Tables<'project'>>;
+  return (data ?? []) as Array<Tables<'company'>>;
 });
 
-export const getDefaultProjectId = cache(async (organizationId: string): Promise<string | null> => {
-  const projects = await getActiveProjects(organizationId);
-  return projects[0]?.id ?? null;
+export const getDefaultCompanyId = cache(async (organizationId: string): Promise<string | null> => {
+  const companies = await getActiveCompanies(organizationId);
+  return companies[0]?.id ?? null;
 });
+
+// Backwards compat aliases (deprecated, use Company variants)
+export const requireProject = requireCompany;
+export const getActiveProjects = getActiveCompanies;
+export const getDefaultProjectId = getDefaultCompanyId;

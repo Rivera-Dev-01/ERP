@@ -4,12 +4,14 @@ import { toDecimal, toDbString } from '@/lib/money';
 
 export async function getTrialBalance(opts: {
   organizationId: string;
+  companyId?: string;
   projectId?: string;
   from: string;
   to: string;
   accountIds?: string[];
 }) {
-  const balances = await getBalances(opts);
+  const companyId = opts.companyId ?? opts.projectId;
+  const balances = await getBalances({ organizationId: opts.organizationId, companyId, from: opts.from, to: opts.to, accountIds: opts.accountIds });
   const rows = balances.filter(
     (b) => b.opening.amount !== '0.0000' || b.period.debit !== '0.0000' || b.period.credit !== '0.0000',
   );

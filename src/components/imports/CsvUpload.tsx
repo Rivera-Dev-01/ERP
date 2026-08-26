@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 
 type Preview = { headers: string[]; rows: Array<Record<string, string>>; rowCount: number } | null;
 
-export function CsvUpload({ projectId }: { projectId?: string }) {
+export function CsvUpload({ companyId, projectId }: { companyId?: string; projectId?: string }) {
   const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<Preview>(null);
@@ -88,7 +88,7 @@ export function CsvUpload({ projectId }: { projectId?: string }) {
           <DialogTitle>Import Chart of Accounts</DialogTitle>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
-          {projectId && <input type="hidden" name="project_id" value={projectId} />}
+          {(companyId ?? projectId) && <input type="hidden" name="company_id" value={companyId ?? projectId} />}
           <div className="space-y-2">
             <Label htmlFor="csv-file">CSV/XLSX file</Label>
             <Input ref={fileRef} id="csv-file" name="file" type="file" accept=".csv,.xlsx,.xls" required onChange={onFileChange} />

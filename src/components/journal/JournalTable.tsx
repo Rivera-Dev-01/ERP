@@ -54,10 +54,12 @@ function StatusBadge({ status }: { status: string }) {
 type Props = {
   data: JournalEntryRow[];
   accounts: AccountOption[];
+  companyId?: string;
   projectId?: string;
 };
 
-export function JournalTable({ data, accounts, projectId }: Props) {
+export function JournalTable({ data, accounts, companyId, projectId }: Props) {
+  const effectiveCompanyId = companyId ?? projectId;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -133,12 +135,12 @@ export function JournalTable({ data, accounts, projectId }: Props) {
       }
       toast.success('Journal entry duplicated');
       if (res.newId) {
-        router.push(projectId ? `/journal/${res.newId}?project=${projectId}` : `/journal/${res.newId}`);
+        router.push(effectiveCompanyId ? `/journal/${res.newId}?company=${effectiveCompanyId}` : `/journal/${res.newId}`);
       } else {
         router.refresh();
       }
     },
-    [projectId, router],
+    [effectiveCompanyId, router],
   );
 
   const handlePost = React.useCallback(
@@ -218,7 +220,7 @@ export function JournalTable({ data, accounts, projectId }: Props) {
           const row = info.row.original;
           const isDraft = row.status === 'DRAFT';
           const isPosted = row.status === 'POSTED';
-          const detailHref = projectId ? `/journal/${row.id}?project=${projectId}` : `/journal/${row.id}`;
+          const detailHref = effectiveCompanyId ? `/journal/${row.id}?company=${effectiveCompanyId}` : `/journal/${row.id}`;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -255,7 +257,7 @@ export function JournalTable({ data, accounts, projectId }: Props) {
         },
       }),
     ],
-    [handleDuplicate, handlePost, projectId, router],
+    [handleDuplicate, handlePost, effectiveCompanyId, router],
   );
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -352,7 +354,7 @@ export function JournalTable({ data, accounts, projectId }: Props) {
           )}
         </div>
 
-        <Link href={projectId ? `/journal/new?project=${projectId}` : '/journal/new'} className="ml-auto">
+        <Link href={effectiveCompanyId ? `/journal/new?company=${effectiveCompanyId}` : '/journal/new'} className="ml-auto">
           <Button>New Journal Entry</Button>
         </Link>
       </div>

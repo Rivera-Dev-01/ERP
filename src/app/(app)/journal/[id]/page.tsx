@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { requireOrganization, getActiveProjects } from '@/server/auth';
+import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { JournalForm } from '@/components/journal/JournalForm';
 import { PostConfirm } from '@/components/journal/PostConfirm';
@@ -16,21 +16,26 @@ export default async function JournalEntryPage({ params, searchParams }: { param
   const sp = searchParams ? await searchParams : {};
   const { organization } = await requireOrganization();
   const supabase = await createClient();
-  const projects = await getActiveProjects(organization.id);
-  const rawProject = sp.project ? String(sp.project) : undefined;
-  const projectId = rawProject ?? projects?.[0]?.id ?? '';
+  const companies = await getActiveCompanies(organization.id);
+  const rawCompany = sp.company ? String(sp.company) : sp.project ? String(sp.project) : undefined;
+  const companyId = rawCompany ?? companies?.[0]?.id ?? '';
 
-  if (!projectId) notFound();
+  if (!companyId) notFound();
 
-  // Canonical: ensure ?project= present
-  if (!rawProject) {
-    redirect(`/journal/${id}?project=${projectId}`);
+  // Backwards compat: redirect old ?project= to ?company=
+  if (sp.project && !sp.company) {
+    redirect(`/journal/${id}?company=${companyId}`);
   }
 
-  // Validate project belongs to org
-  const validIds = new Set((projects ?? []).map((p) => p.id));
-  if (!validIds.has(String(projectId))) {
-    redirect(`/journal/${id}?project=${projects?.[0]?.id ?? ''}`);
+  // Canonical: ensure ?company= present
+  if (!rawCompany) {
+    redirect(`/journal/${id}?company=${companyId}`);
+  }
+
+  // Validate company belongs to org
+  const validIds = new Set((companies ?? []).map((p) => p.id));
+  if (!validIds.has(String(companyId))) {
+    redirect(`/journal/${id}?company=${companies?.[0]?.id ?? ''}`);
   }
 
   const { data: entry } = await supabase
@@ -38,7 +43,7 @@ export default async function JournalEntryPage({ params, searchParams }: { param
     .select('*, journal_line(*)')
     .eq('id', id)
     .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .maybeSingle();
 
   if (!entry) notFound();
@@ -48,11 +53,11 @@ export default async function JournalEntryPage({ params, searchParams }: { param
   // POSTED or REVERSED -> read-only view
   if (status === 'POSTED' || status === 'REVERSED') {
     const lines = (entry as { journal_line: Array<{ id: string; account_id: string; description: string | null; debit: number; credit: number; tax_code: string | null; line_number: number }> }).journal_line ?? [];
-    // fetch account codes for display — strictly within project for correctness
+    // fetch account codes for display — strictly within company for correctness
     const accountIds = lines.map((l) => l.account_id);
     let accountMap = new Map<string, { code: string; name: string }>();
     if (accountIds.length) {
-      const { data: accounts } = await supabase.from('account').select('id,code,name').in('id', accountIds).eq('project_id', projectId);
+      const { data: accounts } = await supabase.from('account').select('id,code,name').in('id', accountIds).eq('company_id', companyId);
       accountMap = new Map((accounts ?? []).map((a) => [a.id, { code: a.code, name: a.name }]));
     }
     const e = entry as {
@@ -135,7 +140,7 @@ export default async function JournalEntryPage({ params, searchParams }: { param
   // DRAFT -> editable form + PostConfirm
   // Need active accounts for picker and entry prop
   const accountQuery = supabase.from('account').select('*').eq('organization_id', organization.id).eq('is_active', true);
-  const { data: accounts } = await (projectId ? accountQuery.eq('project_id', projectId) : accountQuery).order('code');
+  const { data: accounts } = await (companyId ? accountQuery.eq('company_id', companyId) : accountQuery).order('code');
 
   if (canPost(status)) {
     const e = entry as { entry_number: number | null; entry_date: string };
@@ -145,10 +150,10 @@ export default async function JournalEntryPage({ params, searchParams }: { param
         <div className="flex justify-end">
           <PostConfirm entryId={id} entryNumber={display} />
         </div>
-        <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} projectId={projectId} />
+        <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} companyId={companyId} />
       </div>
     );
   }
 
-  return <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} projectId={projectId} />;
+  return <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} companyId={companyId} />;
 }

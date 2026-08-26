@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization, getActiveProjects } from '@/server/auth';
+import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { getTrialBalance } from '@/server/reports/trial-balance';
 import { ReportHeader } from '@/components/reports/ReportHeader';
@@ -19,10 +19,11 @@ export default async function TrialBalancePage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  // Resolve projectId — React.cache dedupes with layout (0 extra DB)
-  const projects = await getActiveProjects(organization.id);
-  const projectId = params.project ? String(params.project) : projects?.[0]?.id;
-  if (!projectId) {
+  // Resolve companyId — React.cache dedupes with layout (0 extra DB)
+  const companies = await getActiveCompanies(organization.id);
+  const rawCompany = params.company ?? params.project;
+  const companyId = rawCompany ? String(rawCompany) : companies?.[0]?.id;
+  if (!companyId) {
     return (
       <PrintLayout>
         <ReportHeader
@@ -33,27 +34,35 @@ export default async function TrialBalancePage({
           generatedAt={new Date().toISOString()}
         />
         <div className="p-8 text-center text-muted-foreground">
-          No projects yet. <a href="/projects" className="underline">Create a project</a> to view reports.
+          No companies yet. <a href="/companies" className="underline">Create a company</a> to view reports.
         </div>
       </PrintLayout>
     );
   }
-  // Canonical redirect: ensure URL has ?project=
-  if (!params.project) {
+  if (params.project && !params.company) {
     const search = new URLSearchParams();
-    search.set('project', projectId);
+    search.set('company', companyId);
     if (params.from) search.set('from', String(params.from));
     if (params.to) search.set('to', String(params.to));
     if (params.account) search.set('account', String(params.account));
     redirect(`/reports/trial-balance?${search.toString()}`);
   }
-  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
+  // Canonical redirect: ensure URL has ?company=
+  if (!params.company) {
+    const search = new URLSearchParams();
+    search.set('company', companyId);
+    if (params.from) search.set('from', String(params.from));
+    if (params.to) search.set('to', String(params.to));
+    if (params.account) search.set('account', String(params.account));
+    redirect(`/reports/trial-balance?${search.toString()}`);
+  }
+  const companyName = companies.find((p) => p.id === companyId)?.name ?? companyId;
 
   const { data: period } = await supabase
     .from('fiscal_period')
     .select('start_date,end_date')
     .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .eq('status', 'OPEN')
     .order('start_date', { ascending: false })
     .limit(1)
@@ -67,7 +76,7 @@ export default async function TrialBalancePage({
   const [{ rows, totalEndingDebits, totalEndingCredits, isBalanced }, accountsRes] = await Promise.all([
     getTrialBalance({
       organizationId: organization.id,
-      projectId,
+      companyId,
       from,
       to,
       accountIds,
@@ -76,7 +85,7 @@ export default async function TrialBalancePage({
       .from('account')
       .select('id,code,name')
       .eq('organization_id', organization.id)
-      .eq('project_id', projectId)
+      .eq('company_id', companyId)
       .order('code'),
   ]);
   const accounts = accountsRes.data;
@@ -101,7 +110,7 @@ export default async function TrialBalancePage({
     { accessorKey: 'ending', header: 'Ending' },
   ];
 
-  const filtersLabel = `project=${projectName}${accountIds ? ` account=${accountIds.join(',')}` : ''}`;
+  const filtersLabel = `company=${companyName}${accountIds ? ` account=${accountIds.join(',')}` : ''}`;
 
   return (
     <PrintLayout>
@@ -115,10 +124,10 @@ export default async function TrialBalancePage({
       />
       <FilterBar from={from} to={to} accounts={accounts ?? []} />
       <div className="flex gap-2 py-2 print:hidden">
-        <a href={`/api/export/trial-balance?format=csv&from=${from}&to=${to}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+        <a href={`/api/export/trial-balance?format=csv&from=${from}&to=${to}&company=${companyId}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
           Export CSV
         </a>
-        <a href={`/api/export/trial-balance?format=xlsx&from=${from}&to=${to}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+        <a href={`/api/export/trial-balance?format=xlsx&from=${from}&to=${to}&company=${companyId}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
           Export XLSX
         </a>
       </div>

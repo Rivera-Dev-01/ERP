@@ -24,19 +24,19 @@ export async function importJournalCsv(_prev: JournalImportResult, formData: For
   }
   const file = formData.get('file') as File | null;
   if (!file) return { ok: false, formError: 'No file provided' };
-  let projectId = String(formData.get('project_id') ?? '').trim();
+  let companyId = String(formData.get('company_id') ?? formData.get('project_id') ?? '').trim();
   const supabase = await createClient();
-  if (!projectId) {
-    const { data: proj } = await supabase
-      .from('project')
+  if (!companyId) {
+    const { data: comp } = await supabase
+      .from('company')
       .select('id')
       .eq('organization_id', ctx.organization.id)
       .eq('status', 'ACTIVE')
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
-    if (!proj) return { ok: false, formError: 'No project found. Create a project first.' };
-    projectId = proj.id;
+    if (!comp) return { ok: false, formError: 'No company found. Create a company first.' };
+    companyId = comp.id;
   }
 
   let headers: string[];
@@ -55,12 +55,12 @@ export async function importJournalCsv(_prev: JournalImportResult, formData: For
   const headerCheck = parseJournalHeader(headers);
   if (!headerCheck.ok) return { ok: false, formError: headerCheck.message };
 
-  // Build accountMap for this project
+  // Build accountMap for this company
   const { data: accounts } = await supabase
     .from('account')
     .select('id,code,is_active')
     .eq('organization_id', ctx.organization.id)
-    .eq('project_id', projectId);
+    .eq('company_id', companyId);
   const accountMap = new Map<string, { id: string; is_active: boolean }>();
   for (const a of accounts ?? []) {
     accountMap.set(a.code, { id: a.id, is_active: a.is_active });
@@ -68,7 +68,7 @@ export async function importJournalCsv(_prev: JournalImportResult, formData: For
 
   const { rowErrors, normalized } = validateJournalGroups(rows, { accountMap });
 
-  // Period check per group: entry_date must be in OPEN period for this project
+  // Period check per group: entry_date must be in OPEN period for this company
   for (const g of normalized) {
     // Skip if already has rowErrors for this group
     const hasGroupError = rowErrors.some((e) => e.group === g.group);
@@ -77,13 +77,13 @@ export async function importJournalCsv(_prev: JournalImportResult, formData: For
       .from('fiscal_period')
       .select('id')
       .eq('organization_id', ctx.organization.id)
-      .eq('project_id', projectId)
+      .eq('company_id', companyId)
       .eq('status', 'OPEN')
       .lte('start_date', g.entry_date)
       .gte('end_date', g.entry_date)
       .maybeSingle();
     if (!period) {
-      rowErrors.push({ row: g.lines[0]?.row ?? -1, group: g.group, message: `Entry Date ${g.entry_date} not in any open period for this project` });
+      rowErrors.push({ row: g.lines[0]?.row ?? -1, group: g.group, message: `Entry Date ${g.entry_date} not in any open period for this company` });
     }
   }
 
@@ -95,7 +95,7 @@ export async function importJournalCsv(_prev: JournalImportResult, formData: For
       .from('fiscal_period')
       .select('id')
       .eq('organization_id', ctx.organization.id)
-      .eq('project_id', projectId)
+      .eq('company_id', companyId)
       .eq('status', 'OPEN')
       .lte('start_date', g.entry_date)
       .gte('end_date', g.entry_date)
@@ -109,7 +109,7 @@ export async function importJournalCsv(_prev: JournalImportResult, formData: For
       .from('journal_entry')
       .insert({
         organization_id: ctx.organization.id,
-        project_id: projectId,
+        company_id: companyId,
         fiscal_period_id: period.id,
         entry_date: g.entry_date,
         reference: g.reference,
@@ -142,7 +142,7 @@ export async function importJournalCsv(_prev: JournalImportResult, formData: For
 
   await supabase.from('import_batch').insert({
     organization_id: ctx.organization.id,
-    project_id: projectId,
+    company_id: companyId,
     file_name: file.name,
     import_type: 'JOURNAL_ENTRIES',
     status: 'IMPORTED',

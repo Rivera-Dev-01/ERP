@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization, getActiveProjects } from '@/server/auth';
+import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { AccountsTable } from '@/components/accounts/AccountsTable';
 import { CsvUpload } from '@/components/imports/CsvUpload';
@@ -14,38 +14,44 @@ export default async function AccountsPage({
   const { organization } = await requireOrganization();
   const params = searchParams ? await searchParams : {};
   const supabase = await createClient();
-  const projects = await getActiveProjects(organization.id);
-  const projectId = params.project ? String(params.project) : projects?.[0]?.id;
+  const companies = await getActiveCompanies(organization.id);
+  // Backwards compat: support ?project= as fallback, redirect to ?company=
+  const rawCompany = params.company ?? params.project;
+  const companyId = rawCompany ? String(rawCompany) : companies?.[0]?.id;
 
-  if (!projectId) {
+  if (!companyId) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Chart of Accounts</h1>
-          <Link href="/projects" className={buttonVariants({ variant: 'default' })}>Create Project</Link>
+          <Link href="/companies" className={buttonVariants({ variant: 'default' })}>Create Company</Link>
         </div>
-        <div className="p-8 text-center text-muted-foreground">No projects yet. Create a project to manage accounts.</div>
+        <div className="p-8 text-center text-muted-foreground">No companies yet. Create a company to manage accounts.</div>
       </div>
     );
   }
 
-  if (!params.project) {
-    redirect(`/accounts?project=${projectId}`);
+  if (params.project && !params.company) {
+    redirect(`/accounts?company=${companyId}`);
   }
 
-  const validIds = new Set((projects ?? []).map((p) => p.id));
-  if (!validIds.has(String(projectId))) {
-    const fallback = projects?.[0]?.id;
-    if (fallback) redirect(`/accounts?project=${fallback}`);
+  if (!params.company) {
+    redirect(`/accounts?company=${companyId}`);
   }
 
-  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
+  const validIds = new Set((companies ?? []).map((p) => p.id));
+  if (!validIds.has(String(companyId))) {
+    const fallback = companies?.[0]?.id;
+    if (fallback) redirect(`/accounts?company=${fallback}`);
+  }
+
+  const companyName = companies?.find((p) => p.id === companyId)?.name ?? companyId;
 
   const { data: accounts } = await supabase
     .from('account')
     .select('*')
     .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
+    .eq('company_id', companyId)
     .order('code');
 
   return (
@@ -53,7 +59,7 @@ export default async function AccountsPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Chart of Accounts</h1>
-          <p className="text-sm text-muted-foreground">Project: {projectName} — Code unique per Project</p>
+          <p className="text-sm text-muted-foreground">Company: {companyName} — Code unique per Company</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -63,7 +69,7 @@ export default async function AccountsPage({
           >
             Download template
           </Link>
-          <CsvUpload projectId={projectId} />
+          <CsvUpload companyId={companyId} />
         </div>
       </div>
       <AccountsTable data={accounts ?? []} />

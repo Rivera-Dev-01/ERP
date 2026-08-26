@@ -18,6 +18,7 @@ export type GeneralJournalRow = {
 
 export async function getGeneralJournal(opts: {
   organizationId: string;
+  companyId?: string;
   projectId?: string;
   from: string;
   to: string;
@@ -26,6 +27,7 @@ export async function getGeneralJournal(opts: {
   q?: string;
 }): Promise<GeneralJournalRow[]> {
   const supabase = await createClient();
+  const companyId = opts.companyId ?? opts.projectId;
   const allowed: ('POSTED' | 'REVERSED' | 'DRAFT')[] =
     opts.status === 'DRAFT' || opts.status.includes('DRAFT')
       ? ['POSTED', 'REVERSED', 'DRAFT']
@@ -34,14 +36,14 @@ export async function getGeneralJournal(opts: {
   let query: any = supabase
     .from('journal_line')
     .select(
-      'debit,credit,account!inner(code,name),journal_entry!inner(id,entry_number,reference,entry_date,description,status,organization_id,project_id)',
+      'debit,credit,account!inner(code,name),journal_entry!inner(id,entry_number,reference,entry_date,description,status,organization_id,company_id)',
     )
     .eq('journal_entry.organization_id', opts.organizationId)
     .in('journal_entry.status', allowed as unknown as never)
     .gte('journal_entry.entry_date', opts.from)
     .lte('journal_entry.entry_date', opts.to)
     .order('journal_entry.entry_date', { ascending: true });
-  if (opts.projectId) query = query.eq('journal_entry.project_id', opts.projectId);
+  if (companyId) query = query.eq('journal_entry.company_id', companyId);
 
   if (opts.accountIds?.length) {
     query = query.in('account_id', opts.accountIds);

@@ -22,7 +22,8 @@ type Account = Tables<'account'>;
 
 export function AccountForm({ account }: { account?: Account | null }) {
   const searchParams = useSearchParams();
-  const projectId = searchParams.get('project') ?? '';
+  const companyId = searchParams.get('company') ?? searchParams.get('project') ?? '';
+  const projectId = companyId;
   const isEdit = !!account;
   const [open, setOpen] = useState(false);
 
@@ -93,7 +94,7 @@ export function AccountForm({ account }: { account?: Account | null }) {
         </DialogHeader>
         <form action={formAction} className="space-y-4">
           {isEdit && <input type="hidden" name="id" value={account!.id} />}
-          {projectId && <input type="hidden" name="project_id" value={projectId} />}
+          {companyId && <input type="hidden" name="company_id" value={companyId} />}
           <div className="space-y-2">
             <Label htmlFor={isEdit ? `code-${account!.id}` : 'code'}>Code</Label>
             <Input

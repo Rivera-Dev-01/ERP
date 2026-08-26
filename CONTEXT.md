@@ -1,29 +1,29 @@
 # ERP Accounting
 
-A desktop-first web accounting prototype for a single pilot company in the Philippines. One accountant encodes journal entries per Project (client engagement), each with its own chart of accounts and fiscal period, and generates per-Project financial reports that must match an existing Excel workbook.
+A desktop-first web accounting prototype for a single pilot company in the Philippines. One accountant encodes journal entries per Company (client engagement), each with its own chart of accounts and fiscal period, and generates per-Company financial reports that must match an existing Excel workbook.
 
 ## Language
 
 ### Core
 
 **Organization**:
-The pilot company whose financial records are being kept. V0 exposes one organization at a time; every owned row carries `organization_id` for future multi-org support. Since Projects, the organization owns multiple isolated Projects.
-_Avoid_: Company, Tenant
+The pilot company whose financial records are being kept. V0 exposes one organization at a time; every owned row carries `organization_id` for future multi-org support. Since Companies, the organization owns multiple isolated Companies.
+_Avoid_: Tenant
 
-**Project**:
-A self-dependent client engagement inside one Organization. Each Project owns its own Chart of Accounts, Fiscal Periods, Journal Entries/Lines, Import Batches, and Reports; nothing is shared across Projects. Code uniqueness is per Project `(project_id, code)`, period overlap is per Project, and reports are filtered by `project_id`. `JE-YYYY-XXXX` entry numbering stays per Organization (`journal_entry_sequence.organization_id`). Query via `?project=<uuid>` flat param, defaulting to the first ACTIVE Project (Example Client).
-_Avoid_: Client (in code use Project), Workspace, Engagement (use Project)
+**Company**:
+A self-dependent client engagement inside one Organization. Each Company owns its own Chart of Accounts, Fiscal Periods, Journal Entries/Lines, Import Batches, and Reports; nothing is shared across Companies. Code uniqueness is per Company `(company_id, code)`, period overlap is per Company, and reports are filtered by `company_id`. `JE-YYYY-XXXX` entry numbering stays per Organization (`journal_entry_sequence.organization_id`). Query via `?company=<uuid>` flat param (backwards compat `?project=` 301 to `?company=`), defaulting to the first ACTIVE Company (Example Client).
+_Avoid_: Project (in code use Company), Workspace, Engagement (use Company), Client (use Company when referring to the entity vs display `client_name`)
 
 **Fiscal Period**:
-A named calendar slice (e.g., July 2026) with `start_date`, `end_date`, and `status` OPEN or CLOSED. Closing is one-way in V0. Since Projects, scoped per Project `(project_id, daterange)`.
+A named calendar slice (e.g., July 2026) with `start_date`, `end_date`, and `status` OPEN or CLOSED. Closing is one-way in V0. Since Companies, scoped per Company `(company_id, daterange)`.
 _Avoid_: Accounting Period, Reporting Period (use Fiscal Period)
 
 **Account**:
-A row in the Chart of Accounts. Identified by a numeric `code` unique per Project `(project_id, code)`, with `type` and `normal_balance`.
+A row in the Chart of Accounts. Identified by a numeric `code` unique per Company `(company_id, code)`, with `type` and `normal_balance`.
 _Avoid_: Ledger, GL Account (use Account)
 
 **Chart of Accounts**:
-The full set of Accounts for one Project, ordered by `code`. V0 imports it from CSV per Project and deactivates — not deletes — accounts.
+The full set of Accounts for one Company, ordered by `code`. V0 imports it from CSV per Company and deactivates — not deletes — accounts.
 _Avoid_: COA abbreviation in UI (spell it out)
 
 **Journal Entry**:
