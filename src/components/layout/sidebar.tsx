@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: '/journal', label: 'Journal' },
   { href: '/imports', label: 'Imports' },
   { href: '/reports/trial-balance', label: 'Reports' },
+  { href: '/activity', label: 'Activity' },
 ];
 
 const SECONDARY_NAV = [
