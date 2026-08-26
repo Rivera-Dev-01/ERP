@@ -1,28 +1,20 @@
-import Papa from 'papaparse';
-import { ACCOUNT_HEADERS } from '@/server/domain/accounts';
+import 'server-only';
 
-export function parseCoaCsv(text: string): {
-  rows: Record<string, string>[];
-  headerError?: string;
-} {
-  const parsed = (
-    Papa.parse as unknown as (
-      input: string,
-      config: unknown,
-    ) => Papa.ParseResult<Record<string, string>>
-  )(text, {
-    header: true,
-    skipEmptyLines: true,
-    trimHeaders: true,
-  } as unknown as Papa.ParseConfig);
-  const headers = (parsed.meta.fields ?? []).map((h: string) => String(h).trim());
-  const lower = headers.map((h: string) => h.toLowerCase());
-  const headerOk = ACCOUNT_HEADERS.every((h) => lower.includes(h.toLowerCase()));
-  if (!headerOk) {
-    return {
-      rows: parsed.data as Record<string, string>[],
-      headerError: `Invalid header. Expected: ${ACCOUNT_HEADERS.join(', ')}`,
-    };
+export type ParsedSheet = { headers: string[]; rows: Array<Record<string, string>> };
+
+export class ImportParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ImportParseError';
   }
-  return { rows: parsed.data as Record<string, string>[] };
+}
+
+/**
+ * Contract frozen 2026-08-26 Gap C — shared tabular parser for both COA + Journal imports.
+ * Supports .csv via papaparse, .xlsx/.xls via exceljs (sheet 1). Worker C implements.
+ * @throws ImportParseError on unsupported extension or empty sheet
+ */
+export async function parseTabular(fileName: string, _data: ArrayBuffer): Promise<ParsedSheet> {
+  void fileName;
+  throw new Error('parseTabular not implemented — Worker C');
 }

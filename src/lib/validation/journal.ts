@@ -70,3 +70,13 @@ export function formatEntryNumber(entry_number: number | null, entry_date: strin
 export function nextReferencePreview(lastNumber: number, entryDate: string): string {
   return formatEntryNumber(lastNumber + 1, entryDate);
 }
+
+// Contract frozen 2026-08-26 Gap A — sticky totals footer shares exact arithmetic via lib/money
+export function sumLineAmounts(lines: Array<{ debit: string; credit: string }>): {
+  totalDebit: string;
+  totalCredit: string;
+  difference: string;
+} {
+  // Stub — Worker A replaces with decimal.js implementation
+  throw new Error('sumLineAmounts not implemented');
+}
