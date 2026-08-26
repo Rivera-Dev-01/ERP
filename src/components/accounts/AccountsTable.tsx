@@ -64,6 +64,14 @@ export function AccountsTable({ data }: { data: Account[] }) {
           );
         },
       }),
+      columnHelper.accessor((row) => (row as unknown as { is_cash?: boolean }).is_cash, {
+        id: 'is_cash',
+        header: 'Cash',
+        cell: (info) => {
+          const v = info.getValue() as unknown as boolean;
+          return v ? <Badge variant="default">Cash</Badge> : <span className="text-muted-foreground">—</span>;
+        },
+      }),
       columnHelper.display({
         id: 'actions',
         header: 'Actions',

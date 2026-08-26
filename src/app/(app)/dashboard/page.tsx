@@ -6,7 +6,9 @@ import { add, toDecimal } from '@/lib/money';
 import { formatBusinessDate, formatPHP } from '@/lib/format';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { getIncomeStatement } from '@/server/reports/income-statement';
 
 export default async function DashboardPage({
   searchParams,
@@ -84,6 +86,82 @@ export default async function DashboardPage({
   const totalCredit =
     postedEntries.reduce((sum, e) => add(sum, e.total_credit), toDecimal('0')) ?? toDecimal('0');
 
+  // S7 enrichment widgets — fetched in parallel (cash, NI, recent, imports)
+  const cashAccountsPromise = supabase.from('account').select('id').eq('company_id', companyId).eq('is_cash', true).eq('is_active', true);
+  const recentPromise = supabase
+    .from('journal_entry')
+    .select('id,reference,entry_date,total_debit,status,posted_at,entry_number')
+    .eq('company_id', companyId)
+    .eq('status', 'POSTED')
+    .order('posted_at', { ascending: false })
+    .limit(5);
+  const importPromise = supabase
+    .from('import_batch')
+    .select('id,file_name,import_type,status,row_count,created_at')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false })
+    .limit(3);
+
+  const [cashAccountsRes, recentRes, importRes] = await Promise.all([
+    cashAccountsPromise,
+    recentPromise,
+    importPromise,
+  ]);
+
+  const cashAccountIds = (cashAccountsRes.data ?? []).map((a: { id: string }) => a.id);
+  let cashBalance = toDecimal('0');
+  if (cashAccountIds.length && period) {
+    // Sum ending balance for is_cash ASSET accounts as-of period end (debits-credits)
+    const { data: cashLines } = await supabase
+      .from('journal_line')
+      .select('debit,credit,account_id,journal_entry!inner(entry_date,status,company_id)')
+      .eq('journal_entry.company_id', companyId)
+      .in('journal_entry.status', ['POSTED', 'REVERSED'])
+      .lte('journal_entry.entry_date', period.end_date)
+      .in('account_id', cashAccountIds);
+    // For ASSET DEBIT normal, cash = debits - credits
+    let d = toDecimal('0');
+    let c = toDecimal('0');
+    for (const l of (cashLines as unknown as Array<{ debit: string; credit: string }> ) ?? []) {
+      d = add(d, l.debit);
+      c = add(c, l.credit);
+    }
+    cashBalance = toDecimal(d.toString()).minus(toDecimal(c.toString()));
+  } else if (cashAccountIds.length && !period) {
+    // No period — sum all
+    const { data: cashLines } = await supabase
+      .from('journal_line')
+      .select('debit,credit,journal_entry!inner(status,company_id)')
+      .eq('journal_entry.company_id', companyId)
+      .in('journal_entry.status', ['POSTED', 'REVERSED'])
+      .in('account_id', cashAccountIds);
+    let d = toDecimal('0');
+    let c = toDecimal('0');
+    for (const l of (cashLines as unknown as Array<{ debit: string; credit: string }> ) ?? []) {
+      d = add(d, l.debit);
+      c = add(c, l.credit);
+    }
+    cashBalance = toDecimal(d.toString()).minus(toDecimal(c.toString()));
+  }
+
+  let netIncome: string | null = null;
+  if (period) {
+    try {
+      const inc = await getIncomeStatement({
+        organizationId: organization.id,
+        companyId,
+        from: period.start_date,
+        to: period.end_date,
+      });
+      netIncome = inc.net;
+    } catch {
+      netIncome = null;
+    }
+  }
+
+  const recentPosted = recentRes.data ?? [];
+  const recentImports = importRes.data ?? [];
+
   return (
     <div className="space-y-6">
       <div>
@@ -153,6 +231,72 @@ export default async function DashboardPage({
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Cash balance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold">{formatPHP(cashBalance.toNumber())}</p>
+            <p className="text-xs text-muted-foreground mt-1">{cashAccountIds.length ? `${cashAccountIds.length} cash accounts` : 'Mark accounts as Cash in Chart of Accounts'}</p>
+            <Link href={`/accounts?company=${companyId}`} className="text-xs underline mt-1 inline-block">Manage accounts</Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Net income</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold">{netIncome ? formatPHP(netIncome) : '—'}</p>
+            <p className="text-xs text-muted-foreground mt-1">{period ? `for ${period.name}` : 'No period'}</p>
+            <Link href={`/reports/income-statement?company=${companyId}`} className="text-xs underline mt-1 inline-block">View Income Statement</Link>
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Recently posted</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentPosted.length ? (
+              <ul className="space-y-1 text-sm">
+                {recentPosted.map((r) => (
+                  <li key={r.id} className="flex justify-between gap-2">
+                    <Link href={`/journal/${r.id}?company=${companyId}`} className="underline truncate">{r.reference ?? r.id.slice(0,8)}</Link>
+                    <span className="text-muted-foreground whitespace-nowrap">{formatBusinessDate(r.entry_date)} · {formatPHP(r.total_debit)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No posted entries yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Recent imports</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recentImports.length ? (
+            <ul className="space-y-1 text-sm">
+              {recentImports.map((im) => (
+                <li key={im.id} className="flex items-center justify-between gap-2">
+                  <span className="truncate">{im.file_name} <Badge variant="outline" className="ml-1">{im.import_type}</Badge></span>
+                  <span className="flex items-center gap-2">
+                    <Badge variant={im.status === 'IMPORTED' ? 'default' : im.status === 'FAILED' ? 'destructive' : 'secondary'}>{im.status}</Badge>
+                    <span className="text-muted-foreground whitespace-nowrap">{new Date(im.created_at).toLocaleDateString('en-PH')}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">No imports yet.</p>
+          )}
+          <Link href={`/imports/history?company=${companyId}`} className="text-xs underline mt-2 inline-block">View import history →</Link>
+        </CardContent>
+      </Card>
 
       <div className="flex gap-2">
         <Link href={`/journal/new?company=${companyId}`} className={cn(buttonVariants())}>

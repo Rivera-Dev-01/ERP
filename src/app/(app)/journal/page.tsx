@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { JournalTable, type JournalEntryRow } from '@/components/journal/JournalTable';
+import { BatchPostButton } from '@/components/journal/BatchPostButton';
 import { buttonVariants } from '@/components/ui/button';
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -98,6 +99,12 @@ export default async function JournalPage({
     .eq('company_id', companyId)
     .eq('is_active', true)
     .order('code');
+  const draftCountPromise = supabase
+    .from('journal_entry')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', organization.id)
+    .eq('company_id', companyId)
+    .eq('status', 'DRAFT');
 
   // Build base query — strictly per Company (fresh company shows 0), paginated
   // Use `any` to avoid Supabase type narrowing issues with chained .in/.or/.gte
@@ -158,7 +165,7 @@ export default async function JournalPage({
     entries = (data ?? []) as unknown as JournalEntryRow[];
   }
 
-  const { data: accounts } = await accountsPromise;
+  const [{ data: accounts }, { count: draftCount }] = await Promise.all([accountsPromise, draftCountPromise]);
 
   const mapped: JournalEntryRow[] = (entries ?? []).map((e) => ({
     ...e,
@@ -172,9 +179,12 @@ export default async function JournalPage({
           <h1 className="text-2xl font-semibold">Journal</h1>
           <p className="text-sm text-muted-foreground">Company: {companyName}</p>
         </div>
-        <Link href={`/journal/new?company=${companyId}`} className={buttonVariants({ variant: 'default' })}>
-          New Journal Entry
-        </Link>
+        <div className="flex items-center gap-2">
+          <BatchPostButton companyId={companyId} draftCount={draftCount ?? 0} />
+          <Link href={`/journal/new?company=${companyId}`} className={buttonVariants({ variant: 'default' })}>
+            New Journal Entry
+          </Link>
+        </div>
       </div>
       <JournalTable data={mapped} accounts={accounts ?? []} companyId={companyId} />
     </div>

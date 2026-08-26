@@ -3,9 +3,10 @@ import { organizationUpdateSchema } from '@/lib/validation/organization';
 
 describe('organizationUpdateSchema', () => {
   it('accepts trimmed legal names', () => {
-    expect(organizationUpdateSchema.parse({ name: ' Acme ', legal_name: ' Acme LLC ' })).toEqual({
+    expect(organizationUpdateSchema.parse({ name: ' Acme ', legal_name: ' Acme LLC ' })).toMatchObject({
       name: 'Acme',
       legal_name: 'Acme LLC',
+      fiscal_year_start_month: 1,
     });
   });
   it('rejects empty name', () => {

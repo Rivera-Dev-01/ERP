@@ -49,6 +49,7 @@ export async function upsertAccount(_prev: R, formData: FormData): Promise<R> {
     type: String(formData.get('type') ?? ''),
     normal_balance: String(formData.get('normal_balance') ?? ''),
     is_active: String(formData.get('is_active') ?? 'true'),
+    is_cash: String(formData.get('is_cash') ?? 'false'),
   });
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -84,6 +85,7 @@ export async function upsertAccount(_prev: R, formData: FormData): Promise<R> {
     type: parsed.data.type,
     normal_balance: parsed.data.normal_balance,
     is_active: parsed.data.is_active,
+    is_cash: parsed.data.is_cash,
   };
   const { error } = isUpdate
     ? await supabase
@@ -131,6 +133,7 @@ export async function seedDemoAccountsIfEmpty(companyId?: string): Promise<void>
       type: 'ASSET' as const,
       normal_balance: 'DEBIT' as const,
       is_active: true,
+      is_cash: true,
     },
     {
       code: '1100',

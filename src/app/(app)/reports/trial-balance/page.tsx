@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOrganization, getActiveCompanies } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
@@ -90,24 +91,34 @@ export default async function TrialBalancePage({
   ]);
   const accounts = accountsRes.data;
 
-  const displayRows = rows.map((r) => ({
-    code: r.account.code,
-    name: r.account.name,
-    opening: r.opening.amount === '0.0000' ? '—' : `${formatPHP(r.opening.amount)} ${r.opening.side}`,
-    periodDebit: r.period.debit === '0.0000' ? '—' : formatPHP(r.period.debit),
-    periodCredit: r.period.credit === '0.0000' ? '—' : formatPHP(r.period.credit),
-    ending: r.ending.amount === '0.0000' ? '—' : `${formatPHP(r.ending.amount)} ${r.ending.side}`,
-  }));
+  const displayRows = rows.map((r) => {
+    const href = `/journal?company=${companyId}&account=${r.account.id}&from=${from}&to=${to}`;
+    return {
+      code: r.account.code,
+      name: r.account.name,
+      opening: r.opening.amount === '0.0000' ? '—' : `${formatPHP(r.opening.amount)} ${r.opening.side}`,
+      periodDebit: r.period.debit === '0.0000' ? '—' : formatPHP(r.period.debit),
+      periodCredit: r.period.credit === '0.0000' ? '—' : formatPHP(r.period.credit),
+      ending: r.ending.amount === '0.0000' ? '—' : `${formatPHP(r.ending.amount)} ${r.ending.side}`,
+      _href: href,
+    };
+  });
 
   type DisplayRow = (typeof displayRows)[number];
 
+  const linkCell = (info: { getValue: () => unknown; row: { original: DisplayRow } }) => {
+    const v = String(info.getValue() ?? '—');
+    if (v === '—') return v;
+    return <Link href={(info.row.original as DisplayRow)._href} className="underline text-primary">{v}</Link>;
+  };
+
   const columns: ColumnDef<DisplayRow, unknown>[] = [
-    { accessorKey: 'code', header: 'Code' },
+    { accessorKey: 'code', header: 'Code', cell: linkCell as unknown as ColumnDef<DisplayRow, unknown>['cell'] },
     { accessorKey: 'name', header: 'Name' },
     { accessorKey: 'opening', header: 'Opening' },
     { accessorKey: 'periodDebit', header: 'Period Debit' },
     { accessorKey: 'periodCredit', header: 'Period Credit' },
-    { accessorKey: 'ending', header: 'Ending' },
+    { accessorKey: 'ending', header: 'Ending', cell: linkCell as unknown as ColumnDef<DisplayRow, unknown>['cell'] },
   ];
 
   const filtersLabel = `company=${companyName}${accountIds ? ` account=${accountIds.join(',')}` : ''}`;

@@ -43,10 +43,12 @@ export function AccountForm({ account }: { account?: Account | null }) {
       type: (account?.type as AccountInput['type']) ?? 'ASSET',
       normal_balance: (account?.normal_balance as AccountInput['normal_balance']) ?? 'DEBIT',
       is_active: account?.is_active ?? true,
+      is_cash: (account as unknown as { is_cash?: boolean })?.is_cash ?? false,
     },
   });
   // eslint-disable-next-line react-hooks/incompatible-library
   const isActiveValue = watch('is_active');
+  const isCashValue = watch('is_cash');
 
   const [state, formAction, pending] = useActionState(upsertAccount, { ok: false } as never);
 
@@ -75,6 +77,7 @@ export function AccountForm({ account }: { account?: Account | null }) {
         type: (account?.type as AccountInput['type']) ?? 'ASSET',
         normal_balance: (account?.normal_balance as AccountInput['normal_balance']) ?? 'DEBIT',
         is_active: account?.is_active ?? true,
+        is_cash: (account as unknown as { is_cash?: boolean })?.is_cash ?? false,
       });
     }
   }, [open, account, reset]);
@@ -162,6 +165,17 @@ export function AccountForm({ account }: { account?: Account | null }) {
           {errors.is_active && (
             <p className="text-sm text-destructive">{String(errors.is_active.message)}</p>
           )}
+          <div className="flex items-center gap-2">
+            <input
+              id={isEdit ? `is_cash-${account!.id}` : 'is_cash'}
+              type="checkbox"
+              checked={!!isCashValue}
+              onChange={(e) => setValue('is_cash', e.target.checked, { shouldValidate: true })}
+              className="size-4 rounded border-input"
+            />
+            <input type="hidden" name="is_cash" value={String(!!isCashValue)} />
+            <Label htmlFor={isEdit ? `is_cash-${account!.id}` : 'is_cash'}>Cash account (for Dashboard)</Label>
+          </div>
           <Button type="submit" disabled={pending || isSubmitting}>
             {pending ? 'Saving…' : isEdit ? 'Save' : 'Create'}
           </Button>

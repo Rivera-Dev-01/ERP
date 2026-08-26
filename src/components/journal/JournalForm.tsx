@@ -29,6 +29,7 @@ type EntryData = {
   reference: string;
   description: string;
   notes: string | null;
+  entry_type?: string | null;
   status: string;
   lines: Array<{
     account_id: string;
@@ -99,6 +100,7 @@ export function JournalForm({ accounts, suggestedReference, entry, mode, company
       reference: entry?.reference ?? '',
       description: entry?.description ?? '',
       notes: entry?.notes ?? '',
+      entry_type: (entry?.entry_type as JournalInput['entry_type']) ?? 'STANDARD',
       lines: initialLines as unknown as JournalInput['lines'],
     },
   });
@@ -110,6 +112,7 @@ export function JournalForm({ accounts, suggestedReference, entry, mode, company
     reference: watched.reference ?? '',
     description: watched.description ?? '',
     notes: watched.notes ?? '',
+    entry_type: (watched as unknown as { entry_type?: string }).entry_type ?? 'STANDARD',
     lines,
   };
   const isValid = journalSchema.safeParse(combinedForValidation).success;
@@ -174,6 +177,7 @@ export function JournalForm({ accounts, suggestedReference, entry, mode, company
     watched.reference,
     watched.description,
     watched.notes,
+    (watched as unknown as { entry_type?: string }).entry_type,
   ]);
   const linesJson = JSON.stringify(lines);
 
@@ -192,6 +196,7 @@ export function JournalForm({ accounts, suggestedReference, entry, mode, company
       fd.set('reference', String(watched.reference ?? ''));
       fd.set('description', String(watched.description ?? ''));
       fd.set('notes', String(watched.notes ?? ''));
+      fd.set('entry_type', String((watched as unknown as { entry_type?: string }).entry_type ?? 'STANDARD'));
       fd.set('lines_json', JSON.stringify(lines));
       try {
         // silent call - ignore toast on success, only surface formError if needed?
@@ -311,7 +316,7 @@ export function JournalForm({ accounts, suggestedReference, entry, mode, company
       {effectiveCompanyId && <input type="hidden" name="company_id" value={effectiveCompanyId} />}
       <input type="hidden" name="lines_json" value={JSON.stringify(lines)} />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
           <Label htmlFor="entry_date">Entry date</Label>
           <Input
@@ -337,6 +342,24 @@ export function JournalForm({ accounts, suggestedReference, entry, mode, company
           />
           {errors.reference && (
             <p className="text-sm text-destructive">{errors.reference.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="entry_type">Entry type</Label>
+          <select
+            id="entry_type"
+            {...register('entry_type')}
+            name="entry_type"
+            aria-label="Entry type"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+          >
+            <option value="STANDARD">STANDARD</option>
+            <option value="OPENING">OPENING</option>
+            <option value="ADJUSTING">ADJUSTING</option>
+          </select>
+          {errors.entry_type && (
+            <p className="text-sm text-destructive">{String(errors.entry_type.message)}</p>
           )}
         </div>
       </div>

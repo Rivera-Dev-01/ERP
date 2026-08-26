@@ -5,5 +5,6 @@ export const accountSchema = z.object({
   type: z.enum(['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE']),
   normal_balance: z.enum(['DEBIT', 'CREDIT']),
   is_active: z.coerce.boolean(),
+  is_cash: z.coerce.boolean().optional().default(false),
 });
 export type AccountInput = z.infer<typeof accountSchema>;

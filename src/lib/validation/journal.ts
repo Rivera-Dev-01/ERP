@@ -36,6 +36,7 @@ export const journalSchema = z
     reference: z.string().trim().min(1, 'Reference is required').max(60),
     description: z.string().trim().min(1, 'Description is required').max(200),
     notes: z.string().trim().max(1000).optional().default(''),
+    entry_type: z.enum(['STANDARD', 'OPENING', 'ADJUSTING']).optional().default('STANDARD'),
     lines: z.array(journalLineSchema).min(2, 'At least two lines are required'),
   })
   .superRefine((val, ctx) => {

@@ -7,11 +7,21 @@ import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/companies', label: 'Companies' },
+  { href: '/settings/periods', label: 'Fiscal Periods' },
   { href: '/accounts', label: 'Accounts' },
   { href: '/journal', label: 'Journal' },
   { href: '/imports', label: 'Imports' },
   { href: '/reports/trial-balance', label: 'Reports' },
   { href: '/activity', label: 'Activity' },
+];
+
+const REPORTS_SUBNAV = [
+  { href: '/reports/trial-balance', label: 'Trial Balance' },
+  { href: '/reports/income-statement', label: 'Income Statement' },
+  { href: '/reports/balance-sheet', label: 'Balance Sheet' },
+  { href: '/reports/general-journal', label: 'General Journal' },
+  { href: '/reports/general-ledger', label: 'General Ledger' },
 ];
 
 const SECONDARY_NAV = [

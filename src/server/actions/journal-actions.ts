@@ -15,6 +15,7 @@ export async function upsertJournalEntry(_prev: R, formData: FormData): Promise<
     reference: String(formData.get('reference') ?? ''),
     description: String(formData.get('description') ?? ''),
     notes: String(formData.get('notes') ?? ''),
+    entry_type: String(formData.get('entry_type') ?? 'STANDARD') || 'STANDARD',
     lines: linesRaw,
   });
   if (!parsed.success) {
@@ -70,6 +71,7 @@ export async function upsertJournalEntry(_prev: R, formData: FormData): Promise<
     reference: parsed.data.reference.trim(),
     description: parsed.data.description.trim(),
     notes: parsed.data.notes || null,
+    entry_type: parsed.data.entry_type ?? 'STANDARD',
     total_debit: Number.parseFloat(toDbString(String(totalDebit))),
     total_credit: Number.parseFloat(toDbString(String(totalCredit))),
   };
@@ -165,6 +167,34 @@ export async function duplicateJournalEntry(entryId: string): Promise<{ ok: bool
   }
   revalidatePath('/journal');
   return { ok: true, newId: created.id };
+}
+
+export async function batchPostDrafts(companyId: string): Promise<{ ok: boolean; posted: number; failed: number; formError?: string }> {
+  let ctx;
+  try {
+    ctx = await requireOrganizationAction();
+  } catch {
+    return { ok: false, posted: 0, failed: 0, formError: 'Not authorized' };
+  }
+  const supabase = await createClient();
+  let cid = companyId?.trim();
+  if (!cid) {
+    const { data: comp } = await supabase.from('company').select('id').eq('organization_id', ctx.organization.id).eq('status', 'ACTIVE').order('created_at', { ascending: true }).limit(1).maybeSingle();
+    if (!comp) return { ok: false, posted: 0, failed: 0, formError: 'No company found' };
+    cid = comp.id;
+  }
+  const { data: drafts } = await supabase.from('journal_entry').select('id').eq('organization_id', ctx.organization.id).eq('company_id', cid).eq('status', 'DRAFT').limit(100);
+  if (!drafts || drafts.length === 0) return { ok: true, posted: 0, failed: 0 };
+  let posted = 0;
+  let failed = 0;
+  for (const d of drafts) {
+    const { error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>)('post_journal_entry', { p_entry_id: d.id });
+    if (error) failed++;
+    else posted++;
+  }
+  revalidatePath('/journal');
+  revalidatePath('/dashboard');
+  return { ok: true, posted, failed };
 }
 
 export async function postJournalEntry(entryId: string): Promise<{ ok: boolean; entryNumber?: string; formError?: string; fieldErrors?: Record<string, string> }> {
