@@ -7,7 +7,6 @@ import { ReportTable } from '@/components/reports/ReportTable';
 import { PrintLayout } from '@/components/reports/PrintLayout';
 import { formatBusinessDate, formatPHP } from '@/lib/format';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { GeneralLedgerLine } from '@/server/reports/general-ledger';
 
 export default async function GeneralLedgerPage({
   searchParams,
@@ -46,51 +45,26 @@ export default async function GeneralLedgerPage({
       })
     : null;
 
-  const columns: ColumnDef<GeneralLedgerLine, unknown>[] = [
-    {
-      accessorKey: 'journal_entry.entry_date',
-      header: 'Date',
-      cell: ({ row }) => formatBusinessDate(row.original.journal_entry.entry_date),
-    },
-    {
-      accessorKey: 'journal_entry.entry_number',
-      header: 'Entry #',
-      cell: ({ row }) => {
-        const n = row.original.journal_entry.entry_number;
-        return n != null ? `JE-2026-${String(n).padStart(4, '0')}` : '—';
-      },
-    },
-    {
-      accessorKey: 'journal_entry.reference',
-      header: 'Reference',
-      cell: ({ row }) => row.original.journal_entry.reference,
-    },
-    {
-      accessorKey: 'journal_entry.description',
-      header: 'Description',
-      cell: ({ row }) => row.original.journal_entry.description,
-    },
-    {
-      accessorKey: 'debit',
-      header: 'Debit',
-      cell: ({ row }) => {
-        const v = row.original.debit as unknown as string;
-        return v && v !== '0' && v !== '0.0000' ? formatPHP(v) : '—';
-      },
-    },
-    {
-      accessorKey: 'credit',
-      header: 'Credit',
-      cell: ({ row }) => {
-        const v = row.original.credit as unknown as string;
-        return v && v !== '0' && v !== '0.0000' ? formatPHP(v) : '—';
-      },
-    },
-    {
-      accessorKey: 'runningBalance',
-      header: 'Running Balance',
-      cell: ({ row }) => `${formatPHP(row.original.runningBalance)} ${row.original.runningSide}`,
-    },
+  const displayRows = (result?.lines ?? []).map((l) => ({
+    entryDate: formatBusinessDate(l.journal_entry.entry_date),
+    entryNumber: l.journal_entry.entry_number != null ? `JE-2026-${String(l.journal_entry.entry_number).padStart(4, '0')}` : '—',
+    reference: l.journal_entry.reference,
+    description: l.journal_entry.description,
+    debit: l.debit && l.debit !== '0' && l.debit !== '0.0000' ? formatPHP(l.debit as unknown as string) : '—',
+    credit: l.credit && l.credit !== '0' && l.credit !== '0.0000' ? formatPHP(l.credit as unknown as string) : '—',
+    runningBalance: `${formatPHP(l.runningBalance)} ${l.runningSide}`,
+  }));
+
+  type DisplayRow = (typeof displayRows)[number];
+
+  const columns: ColumnDef<DisplayRow, unknown>[] = [
+    { accessorKey: 'entryDate', header: 'Date' },
+    { accessorKey: 'entryNumber', header: 'Entry #' },
+    { accessorKey: 'reference', header: 'Reference' },
+    { accessorKey: 'description', header: 'Description' },
+    { accessorKey: 'debit', header: 'Debit' },
+    { accessorKey: 'credit', header: 'Credit' },
+    { accessorKey: 'runningBalance', header: 'Running Balance' },
   ];
 
   const filtersLabel = accountId ? `account=${accountId}` : undefined;
@@ -127,7 +101,7 @@ export default async function GeneralLedgerPage({
               Opening: {formatPHP(result.opening.amount)} {result.opening.side}
             </p>
           )}
-          <ReportTable data={(result?.lines ?? []) as GeneralLedgerLine[]} columns={columns} />
+          <ReportTable data={displayRows} columns={columns} />
         </>
       ) : (
         <div className="rounded-md border p-8 text-center text-muted-foreground">Select an account</div>

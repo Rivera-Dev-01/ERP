@@ -5,11 +5,9 @@ import { ReportHeader } from '@/components/reports/ReportHeader';
 import { FilterBar } from '@/components/reports/FilterBar';
 import { ReportTable } from '@/components/reports/ReportTable';
 import { PrintLayout } from '@/components/reports/PrintLayout';
-import { formatBusinessDate, formatPHP } from '@/lib/format';
+import { formatPHP } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
 import type { ColumnDef } from '@tanstack/react-table';
-
-type TrialRow = Awaited<ReturnType<typeof getTrialBalance>>['rows'][number];
 
 export default async function TrialBalancePage({
   searchParams,
@@ -46,49 +44,24 @@ export default async function TrialBalancePage({
     .eq('organization_id', organization.id)
     .order('code');
 
-  const columns: ColumnDef<TrialRow, unknown>[] = [
-    {
-      accessorKey: 'account.code',
-      header: 'Code',
-      cell: ({ row }) => row.original.account.code,
-    },
-    {
-      accessorKey: 'account.name',
-      header: 'Name',
-      cell: ({ row }) => row.original.account.name,
-    },
-    {
-      id: 'opening',
-      header: 'Opening',
-      cell: ({ row }) => {
-        const o = row.original.opening;
-        return o.amount === '0.0000' ? '—' : `${formatPHP(o.amount)} ${o.side}`;
-      },
-    },
-    {
-      id: 'periodDebit',
-      header: 'Period Debit',
-      cell: ({ row }) => {
-        const v = row.original.period.debit;
-        return v === '0.0000' ? '—' : formatPHP(v);
-      },
-    },
-    {
-      id: 'periodCredit',
-      header: 'Period Credit',
-      cell: ({ row }) => {
-        const v = row.original.period.credit;
-        return v === '0.0000' ? '—' : formatPHP(v);
-      },
-    },
-    {
-      id: 'ending',
-      header: 'Ending',
-      cell: ({ row }) => {
-        const e = row.original.ending;
-        return e.amount === '0.0000' ? '—' : `${formatPHP(e.amount)} ${e.side}`;
-      },
-    },
+  const displayRows = rows.map((r) => ({
+    code: r.account.code,
+    name: r.account.name,
+    opening: r.opening.amount === '0.0000' ? '—' : `${formatPHP(r.opening.amount)} ${r.opening.side}`,
+    periodDebit: r.period.debit === '0.0000' ? '—' : formatPHP(r.period.debit),
+    periodCredit: r.period.credit === '0.0000' ? '—' : formatPHP(r.period.credit),
+    ending: r.ending.amount === '0.0000' ? '—' : `${formatPHP(r.ending.amount)} ${r.ending.side}`,
+  }));
+
+  type DisplayRow = (typeof displayRows)[number];
+
+  const columns: ColumnDef<DisplayRow, unknown>[] = [
+    { accessorKey: 'code', header: 'Code' },
+    { accessorKey: 'name', header: 'Name' },
+    { accessorKey: 'opening', header: 'Opening' },
+    { accessorKey: 'periodDebit', header: 'Period Debit' },
+    { accessorKey: 'periodCredit', header: 'Period Credit' },
+    { accessorKey: 'ending', header: 'Ending' },
   ];
 
   const filtersLabel = accountIds ? `account=${accountIds.join(',')}` : undefined;
@@ -112,7 +85,7 @@ export default async function TrialBalancePage({
           Export XLSX
         </a>
       </div>
-      <ReportTable data={rows} columns={columns} />
+      <ReportTable data={displayRows} columns={columns} />
       <div className="mt-4 flex flex-wrap items-center gap-4 text-sm" data-trial-footer>
         <span>
           Total Ending Debits: <strong>{formatPHP(totalEndingDebits)}</strong>

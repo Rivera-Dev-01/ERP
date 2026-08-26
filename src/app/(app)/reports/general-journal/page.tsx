@@ -7,7 +7,6 @@ import { ReportTable } from '@/components/reports/ReportTable';
 import { PrintLayout } from '@/components/reports/PrintLayout';
 import { formatBusinessDate, formatPHP } from '@/lib/format';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { GeneralJournalRow } from '@/server/reports/general-journal';
 
 export default async function GeneralJournalPage({
   searchParams,
@@ -48,56 +47,28 @@ export default async function GeneralJournalPage({
     .eq('organization_id', organization.id)
     .order('code');
 
-  const columns: ColumnDef<GeneralJournalRow, unknown>[] = [
-    {
-      accessorKey: 'journal_entry.entry_number',
-      header: 'Entry #',
-      cell: ({ row }) => {
-        const n = row.original.journal_entry.entry_number;
-        return n != null ? `JE-2026-${String(n).padStart(4, '0')}` : '—';
-      },
-    },
-    {
-      accessorKey: 'journal_entry.entry_date',
-      header: 'Date',
-      cell: ({ row }) => formatBusinessDate(row.original.journal_entry.entry_date),
-    },
-    {
-      accessorKey: 'journal_entry.reference',
-      header: 'Reference',
-      cell: ({ row }) => row.original.journal_entry.reference,
-    },
-    {
-      accessorKey: 'journal_entry.description',
-      header: 'Description',
-      cell: ({ row }) => row.original.journal_entry.description,
-    },
-    {
-      id: 'account',
-      header: 'Account',
-      cell: ({ row }) => `${row.original.account.code} — ${row.original.account.name}`,
-    },
-    {
-      accessorKey: 'debit',
-      header: 'Debit',
-      cell: ({ row }) => {
-        const v = row.original.debit as unknown as string;
-        return v && v !== '0' && v !== '0.0000' ? formatPHP(v) : '—';
-      },
-    },
-    {
-      accessorKey: 'credit',
-      header: 'Credit',
-      cell: ({ row }) => {
-        const v = row.original.credit as unknown as string;
-        return v && v !== '0' && v !== '0.0000' ? formatPHP(v) : '—';
-      },
-    },
-    {
-      accessorKey: 'journal_entry.status',
-      header: 'Status',
-      cell: ({ row }) => row.original.journal_entry.status,
-    },
+  const displayRows = rows.map((r) => ({
+    entryNumber: r.journal_entry.entry_number != null ? `JE-2026-${String(r.journal_entry.entry_number).padStart(4, '0')}` : '—',
+    entryDate: formatBusinessDate(r.journal_entry.entry_date),
+    reference: r.journal_entry.reference,
+    description: r.journal_entry.description,
+    account: `${r.account.code} — ${r.account.name}`,
+    debit: r.debit && r.debit !== '0' && r.debit !== '0.0000' ? formatPHP(r.debit as unknown as string) : '—',
+    credit: r.credit && r.credit !== '0' && r.credit !== '0.0000' ? formatPHP(r.credit as unknown as string) : '—',
+    status: r.journal_entry.status,
+  }));
+
+  type DisplayRow = (typeof displayRows)[number];
+
+  const columns: ColumnDef<DisplayRow, unknown>[] = [
+    { accessorKey: 'entryNumber', header: 'Entry #' },
+    { accessorKey: 'entryDate', header: 'Date' },
+    { accessorKey: 'reference', header: 'Reference' },
+    { accessorKey: 'description', header: 'Description' },
+    { accessorKey: 'account', header: 'Account' },
+    { accessorKey: 'debit', header: 'Debit' },
+    { accessorKey: 'credit', header: 'Credit' },
+    { accessorKey: 'status', header: 'Status' },
   ];
 
   const filtersLabel = `status=${status}${accountIds ? ` account=${accountIds.join(',')}` : ''}${q ? ` q=${q}` : ''}`;
@@ -127,7 +98,7 @@ export default async function GeneralJournalPage({
           Export XLSX
         </a>
       </div>
-      <ReportTable data={rows} columns={columns} />
+      <ReportTable data={displayRows} columns={columns} />
     </PrintLayout>
   );
 }

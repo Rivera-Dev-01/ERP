@@ -45,29 +45,26 @@ export default async function IncomeStatementPage({
     .eq('organization_id', organization.id)
     .order('code');
 
-  const columns: ColumnDef<IncomeRow, unknown>[] = [
-    {
-      accessorKey: 'account.code',
-      header: 'Code',
-      cell: ({ row }) => row.original.account.code,
-    },
-    {
-      accessorKey: 'account.name',
-      header: 'Name',
-      cell: ({ row }) => row.original.account.name,
-    },
-    {
-      id: 'amount',
-      header: 'Amount',
-      cell: ({ row }) => {
-        const r = row.original;
-        const isIncome = r.account.type === 'INCOME';
-        const amt = isIncome
-          ? (Number(r.period.credit) - Number(r.period.debit)).toFixed(4)
-          : (Number(r.period.debit) - Number(r.period.credit)).toFixed(4);
-        return Number(amt) === 0 ? '—' : formatPHP(amt);
-      },
-    },
+  const toDisplay = (r: IncomeRow) => {
+    const isIncome = r.account.type === 'INCOME';
+    const amt = isIncome
+      ? (Number(r.period.credit) - Number(r.period.debit)).toFixed(4)
+      : (Number(r.period.debit) - Number(r.period.credit)).toFixed(4);
+    return {
+      code: r.account.code,
+      name: r.account.name,
+      amount: Number(amt) === 0 ? '—' : formatPHP(amt),
+    };
+  };
+  const incomeDisplay = incomeRows.map(toDisplay);
+  const expenseDisplay = expenseRows.map(toDisplay);
+
+  type DisplayRow = (typeof incomeDisplay)[number];
+
+  const columns: ColumnDef<DisplayRow, unknown>[] = [
+    { accessorKey: 'code', header: 'Code' },
+    { accessorKey: 'name', header: 'Name' },
+    { accessorKey: 'amount', header: 'Amount' },
   ];
 
   const filtersLabel = accountIds ? `account=${accountIds.join(',')}` : undefined;
@@ -94,14 +91,14 @@ export default async function IncomeStatementPage({
       <div className="space-y-6">
         <section>
           <h2 className="mb-2 text-sm font-semibold">Income</h2>
-          <ReportTable data={incomeRows} columns={columns} />
+          <ReportTable data={incomeDisplay} columns={columns} />
           <p className="mt-2 text-sm">
             Total Income: <strong>{formatPHP(income)}</strong>
           </p>
         </section>
         <section>
           <h2 className="mb-2 text-sm font-semibold">Expenses</h2>
-          <ReportTable data={expenseRows} columns={columns} />
+          <ReportTable data={expenseDisplay} columns={columns} />
           <p className="mt-2 text-sm">
             Total Expenses: <strong>{formatPHP(expenses)}</strong>
           </p>
