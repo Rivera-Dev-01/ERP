@@ -99,6 +99,77 @@ export type Database = {
           },
         ]
       }
+      attachment: {
+        Row: {
+          company_id: string
+          created_at: string
+          entity_type: string
+          file_name: string
+          id: string
+          journal_entry_id: string | null
+          mime_type: string
+          organization_id: string
+          size_bytes: number
+          storage_path: string
+          uploaded_by_id: string | null
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          entity_type?: string
+          file_name: string
+          id?: string
+          journal_entry_id?: string | null
+          mime_type?: string
+          organization_id: string
+          size_bytes?: number
+          storage_path: string
+          uploaded_by_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          entity_type?: string
+          file_name?: string
+          id?: string
+          journal_entry_id?: string | null
+          mime_type?: string
+          organization_id?: string
+          size_bytes?: number
+          storage_path?: string
+          uploaded_by_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachment_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organization"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_uploaded_by_id_fkey"
+            columns: ["uploaded_by_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_event: {
         Row: {
           action: string

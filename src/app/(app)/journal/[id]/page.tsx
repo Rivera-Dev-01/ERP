@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { canPost, canReverse } from '@/server/domain/journals';
+import { AttachmentsCard } from '@/components/journal/AttachmentsCard';
 
 export default async function JournalEntryPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
@@ -49,6 +50,14 @@ export default async function JournalEntryPage({ params, searchParams }: { param
   if (!entry) notFound();
 
   const status = (entry as { status: string }).status;
+  const { data: attachments } = await supabase
+    .from('attachment')
+    .select('id,file_name,size_bytes,created_at')
+    .eq('journal_entry_id', id)
+    .order('created_at', { ascending: false });
+  const attachmentsCard = (
+    <AttachmentsCard entryId={id} initial={(attachments ?? []) as unknown as Array<{ id: string; file_name: string; size_bytes: number; created_at: string }>} />
+  );
 
   // POSTED or REVERSED -> read-only view
   if (status === 'POSTED' || status === 'REVERSED') {
@@ -123,6 +132,7 @@ export default async function JournalEntryPage({ params, searchParams }: { param
             </Table>
           </CardContent>
         </Card>
+        {attachmentsCard}
         {canReverse(status) ? (
           <div className="flex justify-end">
             <ReverseDialog
@@ -151,9 +161,16 @@ export default async function JournalEntryPage({ params, searchParams }: { param
           <PostConfirm entryId={id} entryNumber={display} />
         </div>
         <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} companyId={companyId} />
+        {attachmentsCard}
       </div>
     );
   }
 
-  return <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} companyId={companyId} />;
+  return (
+    <div className="space-y-6">
+      <JournalForm mode="edit" entry={entry as unknown as Parameters<typeof JournalForm>[0]['entry']} accounts={accounts ?? []} companyId={companyId} />
+      {attachmentsCard}
+    </div>
+  );
 }
+

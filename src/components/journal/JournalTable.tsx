@@ -73,6 +73,7 @@ export function JournalTable({ data, accounts, companyId, projectId }: Props) {
   const fromParam = searchParams.get('from') ?? searchParams.get('date_from') ?? searchParams.get('start_date') ?? '';
   const toParam = searchParams.get('to') ?? searchParams.get('date_to') ?? searchParams.get('end_date') ?? '';
   const accountParam = searchParams.get('account') ?? searchParams.get('account_id') ?? '';
+  const docParam = searchParams.get('doc') ?? '';
 
   const updateParam = React.useCallback(
     (key: string, value: string | null) => {
@@ -339,6 +340,18 @@ export function JournalTable({ data, accounts, companyId, projectId }: Props) {
           aria-label="To date"
           className="w-auto"
         />
+
+        {/* Attachment evidence filter */}
+        <select
+          value={docParam}
+          onChange={(e) => updateParam('doc', e.target.value || null)}
+          aria-label="Filter by attachments"
+          className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
+        >
+          <option value="">All docs</option>
+          <option value="with">With attachment</option>
+          <option value="missing">Missing document</option>
+        </select>
 
         {/* Account filter via AccountPicker on is_active accounts */}
         <div className="min-w-[220px]">

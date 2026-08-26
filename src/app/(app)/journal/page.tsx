@@ -27,6 +27,7 @@ export default async function JournalPage({
   const fromRaw = getFirst(params.from ?? params.date_from ?? params.start_date ?? params.start);
   const toRaw = getFirst(params.to ?? params.date_to ?? params.end_date ?? params.end);
   const accountRaw = getFirst(params.account ?? params.account_id ?? params.accountId);
+  const docRaw = getFirst(params.doc); // missing | with
   const companyRaw = getFirst(params.company ?? params.project);
   const projectRaw = getFirst(params.project);
   const pageRaw = getFirst(params.page);
@@ -144,7 +145,36 @@ export default async function JournalPage({
 
   let entries: JournalEntryRow[] | null = null;
 
-  if (accountRaw) {
+  if (docRaw === 'missing' || docRaw === 'with') {
+    // Attachment filter: fetch ids having attachments, then include/exclude
+    const { data: attRows } = await supabase.from('attachment').select('journal_entry_id').not('journal_entry_id', 'is', null).limit(2000);
+    const withIds = new Set((attRows ?? []).map((r: { journal_entry_id: string | null }) => r.journal_entry_id as string));
+    const { count } = await supabase
+      .from('journal_entry')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', organization.id)
+      .eq('company_id', companyId);
+    const total = count ?? 0;
+    if (docRaw === 'with') {
+      if (withIds.size === 0) entries = [];
+      else {
+        const { data } = await query.in('id', [...withIds]);
+        entries = (data ?? []) as unknown as JournalEntryRow[];
+      }
+    } else {
+      // missing: need full id list for the company to subtract — acceptable at V0 volumes (≤ few thousand)
+      const { data: allRows } = await supabase
+        .from('journal_entry')
+        .select('id,entry_number,entry_date,reference,description,status,total_debit,total_credit,created_at,updated_at,company_id')
+        .eq('organization_id', organization.id)
+        .eq('company_id', companyId)
+        .order('entry_date', { ascending: false })
+        .range(0, Math.max(total - 1, 0));
+      const missing = (allRows ?? []).filter((r: { id: string }) => !withIds.has(r.id));
+      const startIdx = (page - 1) * pageSize;
+      entries = missing.slice(startIdx, startIdx + pageSize) as unknown as JournalEntryRow[];
+    }
+  } else if (accountRaw) {
     const accountId = String(accountRaw);
     // Limit lineRows to avoid fetching entire history for high-volume accounts
     const { data: lineRows } = await supabase
