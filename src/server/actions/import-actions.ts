@@ -1,11 +1,11 @@
 'use server';
 import 'server-only';
 import { revalidatePath } from 'next/cache';
-import Papa from 'papaparse';
 import { requireOrganizationAction } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { validateJournalGroups, parseJournalHeader } from '@/server/imports/journal-import';
 import { toDbString } from '@/lib/money';
+import { ImportParseError, parseTabular } from '@/server/imports/parser';
 
 type JournalImportResult = {
   ok: boolean;
@@ -39,22 +39,21 @@ export async function importJournalCsv(_prev: JournalImportResult, formData: For
     projectId = proj.id;
   }
 
-  const text = await file.text();
-  const parsed = (
-    Papa.parse as unknown as (
-      input: string,
-      config: unknown,
-    ) => Papa.ParseResult<Record<string, string>>
-  )(text, {
-    header: true,
-    skipEmptyLines: true,
-    trimHeaders: true,
-  } as unknown as Papa.ParseConfig);
-  const headers = (parsed.meta.fields ?? []).map((h: string) => String(h).trim());
+  let headers: string[];
+  let rows: Record<string, string>[];
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const parsedSheet = await parseTabular(file.name, arrayBuffer);
+    headers = parsedSheet.headers;
+    rows = parsedSheet.rows;
+  } catch (e) {
+    if (e instanceof ImportParseError) {
+      return { ok: false, formError: e.message };
+    }
+    throw e;
+  }
   const headerCheck = parseJournalHeader(headers);
   if (!headerCheck.ok) return { ok: false, formError: headerCheck.message };
-
-  const rows = parsed.data as Record<string, string>[];
 
   // Build accountMap for this project
   const { data: accounts } = await supabase

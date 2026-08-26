@@ -63,10 +63,10 @@ export function CsvUpload({ projectId }: { projectId?: string }) {
         <form action={formAction} className="space-y-4">
           {projectId && <input type="hidden" name="project_id" value={projectId} />}
           <div className="space-y-2">
-            <Label htmlFor="csv-file">CSV file</Label>
-            <Input ref={fileRef} id="csv-file" name="file" type="file" accept=".csv" required />
+            <Label htmlFor="csv-file">CSV/XLSX file</Label>
+            <Input ref={fileRef} id="csv-file" name="file" type="file" accept=".csv,.xlsx,.xls" required />
             <p className="text-xs text-muted-foreground">
-              Header must be: Account Code, Account Name, Account Type, Normal Balance, Active
+              Accepted: .csv, .xlsx (.xls). Header must be: Account Code, Account Name, Account Type, Normal Balance, Active
             </p>
           </div>
           <Button type="submit" disabled={pending}>

@@ -1,12 +1,12 @@
 'use server';
 import 'server-only';
 import { revalidatePath } from 'next/cache';
-import Papa from 'papaparse';
 import { requireOrganizationAction } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { accountSchema } from '@/lib/validation/account';
 import { ACCOUNT_HEADERS } from '@/server/domain/accounts';
 import { validateCoaRows } from '@/server/imports/coa-import';
+import { ImportParseError, parseTabular } from '@/server/imports/parser';
 import type { Database } from '@/types/database';
 
 type R = { ok: boolean; fieldErrors?: Record<string, string>; formError?: string };
@@ -190,18 +190,19 @@ export async function importAccountsCsv(
   }
   const file = formData.get('file') as File | null;
   if (!file) return { ok: false, formError: 'No file provided' } as const;
-  const text = await file.text();
-  const parsed = (
-    Papa.parse as unknown as (
-      input: string,
-      config: unknown,
-    ) => Papa.ParseResult<Record<string, string>>
-  )(text, {
-    header: true,
-    skipEmptyLines: true,
-    trimHeaders: true,
-  } as unknown as Papa.ParseConfig);
-  const headers = (parsed.meta.fields ?? []).map((h: string) => String(h).trim());
+  let headers: string[];
+  let rows: Record<string, string>[];
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const parsedSheet = await parseTabular(file.name, arrayBuffer);
+    headers = parsedSheet.headers;
+    rows = parsedSheet.rows;
+  } catch (e) {
+    if (e instanceof ImportParseError) {
+      return { ok: false, formError: e.message } as const;
+    }
+    throw e;
+  }
   const headerOk = ACCOUNT_HEADERS.every((h) =>
     headers.map((x: string) => x.toLowerCase()).includes(h.toLowerCase()),
   );
@@ -210,7 +211,6 @@ export async function importAccountsCsv(
       ok: false,
       formError: `Invalid header. Expected: ${ACCOUNT_HEADERS.join(', ')}`,
     } as const;
-  const rows = parsed.data as Record<string, string>[];
   const { rowErrors, normalized } = validateCoaRows(rows);
   const supabase = await createClient();
   let projectId = String(formData.get('project_id') ?? '').trim();

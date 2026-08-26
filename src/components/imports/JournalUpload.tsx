@@ -39,9 +39,9 @@ export function JournalUpload({ projectId }: { projectId: string }) {
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="project_id" value={projectId} />
           <div className="space-y-2">
-            <Label htmlFor="journal-file">CSV file</Label>
-            <Input ref={fileRef} id="journal-file" name="file" type="file" accept=".csv" required />
-            <p className="text-xs text-muted-foreground">Header must be: Entry Group, Entry Date, Reference, Entry Description, Account Code, Line Description, Debit, Credit, Tax Code</p>
+            <Label htmlFor="journal-file">CSV/XLSX file</Label>
+            <Input ref={fileRef} id="journal-file" name="file" type="file" accept=".csv,.xlsx,.xls" required />
+            <p className="text-xs text-muted-foreground">Accepted: .csv, .xlsx (.xls). Header must be: Entry Group, Entry Date, Reference, Entry Description, Account Code, Line Description, Debit, Credit, Tax Code</p>
           </div>
           <Button type="submit" disabled={pending}>{pending ? 'Importing…' : 'Upload'}</Button>
         </form>
