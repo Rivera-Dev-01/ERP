@@ -10,3 +10,8 @@ export const fiscalPeriodSchema = z
     path: ['end_date'],
   });
 export type FiscalPeriodInput = z.infer<typeof fiscalPeriodSchema>;
+
+export const reopenReasonSchema = z
+  .object({ reason: z.string().trim().min(5, 'Reason must be at least 5 characters').max(500) })
+  .strict();
+export type ReopenReasonInput = z.infer<typeof reopenReasonSchema>;

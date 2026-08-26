@@ -198,6 +198,9 @@ export type Database = {
           id: string
           name: string
           organization_id: string
+          reopened_at: string | null
+          reopened_by_id: string | null
+          reopened_reason: string | null
           start_date: string
           status: Database["public"]["Enums"]["fiscal_period_status"]
           updated_at: string
@@ -210,6 +213,9 @@ export type Database = {
           id?: string
           name: string
           organization_id: string
+          reopened_at?: string | null
+          reopened_by_id?: string | null
+          reopened_reason?: string | null
           start_date: string
           status?: Database["public"]["Enums"]["fiscal_period_status"]
           updated_at?: string
@@ -222,6 +228,9 @@ export type Database = {
           id?: string
           name?: string
           organization_id?: string
+          reopened_at?: string | null
+          reopened_by_id?: string | null
+          reopened_reason?: string | null
           start_date?: string
           status?: Database["public"]["Enums"]["fiscal_period_status"]
           updated_at?: string
@@ -239,6 +248,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organization"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_period_reopened_by_id_fkey"
+            columns: ["reopened_by_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
             referencedColumns: ["id"]
           },
         ]
