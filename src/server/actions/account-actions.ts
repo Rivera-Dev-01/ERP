@@ -50,6 +50,7 @@ export async function upsertAccount(_prev: R, formData: FormData): Promise<R> {
     normal_balance: String(formData.get('normal_balance') ?? ''),
     is_active: String(formData.get('is_active') ?? 'true'),
     is_cash: String(formData.get('is_cash') ?? 'false'),
+    cf_category: String(formData.get('cf_category') ?? 'OPERATING'),
   });
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -86,6 +87,7 @@ export async function upsertAccount(_prev: R, formData: FormData): Promise<R> {
     normal_balance: parsed.data.normal_balance,
     is_active: parsed.data.is_active,
     is_cash: parsed.data.is_cash,
+    cf_category: parsed.data.cf_category,
   };
   const { error } = isUpdate
     ? await supabase

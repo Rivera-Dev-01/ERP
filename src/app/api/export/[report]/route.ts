@@ -5,9 +5,10 @@ import { getGeneralLedger } from '@/server/reports/general-ledger';
 import { getTrialBalance } from '@/server/reports/trial-balance';
 import { getIncomeStatement } from '@/server/reports/income-statement';
 import { getBalanceSheet } from '@/server/reports/balance-sheet';
+import { getCashFlow } from '@/server/reports/cash-flow';
 import { buildCsv, buildXlsx } from '@/server/imports/export';
 
-const REPORTS = ['general-journal', 'general-ledger', 'trial-balance', 'income-statement', 'balance-sheet'] as const;
+const REPORTS = ['general-journal', 'general-ledger', 'trial-balance', 'income-statement', 'balance-sheet', 'cash-flow'] as const;
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ report: string }> }) {
   const { report } = await params;
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ repo
   const format = (url.searchParams.get('format') ?? 'csv').toLowerCase();
   const accountIds = account ? account.split(',').filter(Boolean) : undefined;
   const companyParam = url.searchParams.get('company') ?? url.searchParams.get('project');
-  let companyId: string | undefined = companyParam ?? undefined;
+  let companyId: string = companyParam ?? '';
   if (!companyId) {
     const { createClient } = await import('@/server/supabase/server');
     const supabase = await createClient();
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ repo
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
-    companyId = comp?.id ?? undefined;
+    companyId = comp?.id ?? '';
   }
 
   let headers: string[] = [];
@@ -71,6 +72,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ repo
       { Section: 'Liabilities', Amount: liabilities },
       { Section: 'Equity', Amount: equity },
       { Section: 'Current Earnings', Amount: currentEarnings },
+    ];
+  } else if (report === 'cash-flow') {
+    const cf = await getCashFlow({ organizationId: ctx.organization.id, companyId, from, to });
+    headers = ['Section', 'Code', 'Name', 'Effect on Cash'];
+    rows = [
+      { Section: 'Net Income', Code: '', Name: '', 'Effect on Cash': cf.netIncome },
+      ...cf.operating.lines.map((l) => ({ Section: 'Operating', Code: l.code, Name: l.name, 'Effect on Cash': l.delta })),
+      { Section: 'Total Operating', Code: '', Name: '', 'Effect on Cash': cf.operating.total },
+      ...cf.investing.lines.map((l) => ({ Section: 'Investing', Code: l.code, Name: l.name, 'Effect on Cash': l.delta })),
+      { Section: 'Total Investing', Code: '', Name: '', 'Effect on Cash': cf.investing.total },
+      ...cf.financing.lines.map((l) => ({ Section: 'Financing', Code: l.code, Name: l.name, 'Effect on Cash': l.delta })),
+      { Section: 'Total Financing', Code: '', Name: '', 'Effect on Cash': cf.financing.total },
+      { Section: 'Cash Opening', Code: '', Name: '', 'Effect on Cash': cf.cashOpening },
+      { Section: 'Net Change in Cash', Code: '', Name: '', 'Effect on Cash': cf.netChange },
+      { Section: 'Cash Ending', Code: '', Name: '', 'Effect on Cash': cf.cashEnding },
     ];
   } else if (report === 'general-ledger' && accountIds?.length === 1) {
     const { opening, lines } = await getGeneralLedger({ organizationId: ctx.organization.id, companyId, accountId: accountIds[0], from, to });

@@ -44,6 +44,7 @@ export function AccountForm({ account }: { account?: Account | null }) {
       normal_balance: (account?.normal_balance as AccountInput['normal_balance']) ?? 'DEBIT',
       is_active: account?.is_active ?? true,
       is_cash: (account as unknown as { is_cash?: boolean })?.is_cash ?? false,
+      cf_category: ((account as unknown as { cf_category?: string })?.cf_category ?? 'OPERATING') as AccountInput['cf_category'],
     },
   });
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -78,6 +79,7 @@ export function AccountForm({ account }: { account?: Account | null }) {
         normal_balance: (account?.normal_balance as AccountInput['normal_balance']) ?? 'DEBIT',
         is_active: account?.is_active ?? true,
         is_cash: (account as unknown as { is_cash?: boolean })?.is_cash ?? false,
+        cf_category: ((account as unknown as { cf_category?: string })?.cf_category ?? 'OPERATING') as AccountInput['cf_category'],
       });
     }
   }, [open, account, reset]);
@@ -175,6 +177,20 @@ export function AccountForm({ account }: { account?: Account | null }) {
             />
             <input type="hidden" name="is_cash" value={String(!!isCashValue)} />
             <Label htmlFor={isEdit ? `is_cash-${account!.id}` : 'is_cash'}>Cash account (for Dashboard)</Label>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={isEdit ? `cf-${account!.id}` : 'cf'}>Cash flow category</Label>
+            <select
+              id={isEdit ? `cf-${account!.id}` : 'cf'}
+              {...register('cf_category')}
+              name="cf_category"
+              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+            >
+              <option value="OPERATING">Operating</option>
+              <option value="INVESTING">Investing</option>
+              <option value="FINANCING">Financing</option>
+            </select>
+            <p className="text-xs text-muted-foreground">Used by the Cash Flow Statement (indirect).</p>
           </div>
           <Button type="submit" disabled={pending || isSubmitting}>
             {pending ? 'Saving…' : isEdit ? 'Save' : 'Create'}

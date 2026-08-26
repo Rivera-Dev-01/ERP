@@ -20,6 +20,7 @@ const REPORTS_SUBNAV = [
   { href: '/reports/trial-balance', label: 'Trial Balance' },
   { href: '/reports/income-statement', label: 'Income Statement' },
   { href: '/reports/balance-sheet', label: 'Balance Sheet' },
+  { href: '/reports/cash-flow', label: 'Cash Flow' },
   { href: '/reports/general-journal', label: 'General Journal' },
   { href: '/reports/general-ledger', label: 'General Ledger' },
 ];
@@ -70,6 +71,35 @@ export function Sidebar({
             item.href === '/reports/trial-balance'
               ? pathname.startsWith('/reports')
               : pathname.startsWith(item.href);
+          if (item.href === '/reports/trial-balance') {
+            return (
+              <div key="reports-group" className="flex flex-col gap-0.5">
+                <Link
+                  href={withCompany(item.href)}
+                  className={cn(
+                    'rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted',
+                    active ? 'bg-muted font-medium' : 'text-muted-foreground',
+                  )}
+                >
+                  {item.label}
+                </Link>
+                <div className="ml-4 flex flex-col gap-0.5 border-l pl-2">
+                  {REPORTS_SUBNAV.map((sub) => (
+                    <Link
+                      key={sub.href}
+                      href={withCompany(sub.href)}
+                      className={cn(
+                        'rounded-md px-2 py-1 text-xs transition-colors hover:bg-muted',
+                        pathname === sub.href ? 'bg-muted font-medium' : 'text-muted-foreground',
+                      )}
+                    >
+                      {sub.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          }
           return (
             <Link
               key={item.href}

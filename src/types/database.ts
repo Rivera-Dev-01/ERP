@@ -41,6 +41,7 @@ export type Database = {
     Tables: {
       account: {
         Row: {
+          cf_category: string
           code: string
           company_id: string
           created_at: string
@@ -54,6 +55,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cf_category?: string
           code: string
           company_id?: string
           created_at?: string
@@ -67,6 +69,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cf_category?: string
           code?: string
           company_id?: string
           created_at?: string

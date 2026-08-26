@@ -6,5 +6,6 @@ export const accountSchema = z.object({
   normal_balance: z.enum(['DEBIT', 'CREDIT']),
   is_active: z.coerce.boolean(),
   is_cash: z.coerce.boolean().optional().default(false),
+  cf_category: z.enum(['OPERATING', 'INVESTING', 'FINANCING']).optional().default('OPERATING'),
 });
 export type AccountInput = z.infer<typeof accountSchema>;
