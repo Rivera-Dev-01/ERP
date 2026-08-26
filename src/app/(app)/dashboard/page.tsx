@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { requireOrganization } from '@/server/auth';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { add, toDecimal } from '@/lib/money';
 import { formatBusinessDate, formatPHP } from '@/lib/format';
@@ -17,12 +17,7 @@ export default async function DashboardPage({
   const params = searchParams ? await searchParams : {};
   const supabase = await createClient();
 
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id,name')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  const projects = await getActiveProjects(organization.id);
 
   const projectId = params.project ? String(params.project) : projects?.[0]?.id;
 
@@ -50,21 +45,27 @@ export default async function DashboardPage({
 
   const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
 
-  const { data: period } = await supabase
-    .from('fiscal_period')
-    .select('*')
-    .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
-    .eq('status', 'OPEN')
-    .order('start_date', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Parallelize period + entries (was sequential 2 round trips)
+  const [periodRes, entriesRes] = await Promise.all([
+    supabase
+      .from('fiscal_period')
+      .select('*')
+      .eq('organization_id', organization.id)
+      .eq('project_id', projectId)
+      .eq('status', 'OPEN')
+      .order('start_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('journal_entry')
+      .select('status, total_debit, total_credit')
+      .eq('organization_id', organization.id)
+      .eq('project_id', projectId)
+      .limit(200),
+  ]);
 
-  const { data: entries } = await supabase
-    .from('journal_entry')
-    .select('status, total_debit, total_credit')
-    .eq('organization_id', organization.id)
-    .eq('project_id', projectId);
+  const period = periodRes.data as typeof periodRes.data;
+  const entries = entriesRes.data as typeof entriesRes.data;
 
   const draftCount = entries?.filter((e) => e.status === 'DRAFT').length ?? 0;
   const postedEntries = entries?.filter((e) => e.status === 'POSTED') ?? [];

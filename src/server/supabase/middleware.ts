@@ -25,9 +25,11 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
+  // Use getSession (cookie-only, no network) in middleware for speed; strict getUser check still happens in Server Components via requireOrganization (React.cache dedupes).
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const pathname = request.nextUrl.pathname;
   const isProtected = PROTECTED_PREFIXES.some(

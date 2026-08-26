@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization } from '@/server/auth';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { AccountsTable } from '@/components/accounts/AccountsTable';
 import { CsvUpload } from '@/components/imports/CsvUpload';
@@ -14,12 +14,7 @@ export default async function AccountsPage({
   const { organization } = await requireOrganization();
   const params = searchParams ? await searchParams : {};
   const supabase = await createClient();
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id,name')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  const projects = await getActiveProjects(organization.id);
   const projectId = params.project ? String(params.project) : projects?.[0]?.id;
 
   if (!projectId) {

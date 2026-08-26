@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization } from '@/server/auth';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { getIncomeStatement } from '@/server/reports/income-statement';
 import { ReportHeader } from '@/components/reports/ReportHeader';
@@ -20,12 +20,7 @@ export default async function IncomeStatementPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id,name')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  const projects = await getActiveProjects(organization.id);
   const projectId = params.project ? String(params.project) : projects?.[0]?.id;
   if (!projectId) {
     return (
@@ -51,7 +46,7 @@ export default async function IncomeStatementPage({
     if (params.account) search.set('account', String(params.account));
     redirect(`/reports/income-statement?${search.toString()}`);
   }
-  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
 
   const { data: period } = await supabase
     .from('fiscal_period')
@@ -67,20 +62,22 @@ export default async function IncomeStatementPage({
   const to = params.to ?? period?.end_date ?? '2026-07-31';
   const accountIds = params.account ? String(params.account).split(',').filter(Boolean) : undefined;
 
-  const { income, expenses, net, incomeRows, expenseRows } = await getIncomeStatement({
-    organizationId: organization.id,
-    projectId,
-    from,
-    to,
-    accountIds,
-  });
-
-  const { data: accounts } = await supabase
-    .from('account')
-    .select('id,code,name')
-    .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
-    .order('code');
+  const [{ income, expenses, net, incomeRows, expenseRows }, accountsRes] = await Promise.all([
+    getIncomeStatement({
+      organizationId: organization.id,
+      projectId,
+      from,
+      to,
+      accountIds,
+    }),
+    supabase
+      .from('account')
+      .select('id,code,name')
+      .eq('organization_id', organization.id)
+      .eq('project_id', projectId)
+      .order('code'),
+  ]);
+  const accounts = accountsRes.data;
 
   const toDisplay = (r: IncomeRow) => {
     const isIncome = r.account.type === 'INCOME';

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization } from '@/server/auth';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { getBalanceSheet } from '@/server/reports/balance-sheet';
 import { ReportHeader } from '@/components/reports/ReportHeader';
@@ -17,12 +17,7 @@ export default async function BalanceSheetPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id,name')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  const projects = await getActiveProjects(organization.id);
   const projectId = params.project ? String(params.project) : projects?.[0]?.id;
   if (!projectId) {
     return (
@@ -47,7 +42,7 @@ export default async function BalanceSheetPage({
     if (params.account) search.set('account', String(params.account));
     redirect(`/reports/balance-sheet?${search.toString()}`);
   }
-  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
 
   const { data: period } = await supabase
     .from('fiscal_period')
@@ -63,19 +58,21 @@ export default async function BalanceSheetPage({
   const from = params.from ?? period?.start_date ?? '1970-01-01';
   const accountIds = params.account ? String(params.account).split(',').filter(Boolean) : undefined;
 
-  const { assets, liabilities, equity, currentEarnings, isBalanced } = await getBalanceSheet({
-    organizationId: organization.id,
-    projectId,
-    asOf,
-    accountIds,
-  });
-
-  const { data: accounts } = await supabase
-    .from('account')
-    .select('id,code,name')
-    .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
-    .order('code');
+  const [{ assets, liabilities, equity, currentEarnings, isBalanced }, accountsRes] = await Promise.all([
+    getBalanceSheet({
+      organizationId: organization.id,
+      projectId,
+      asOf,
+      accountIds,
+    }),
+    supabase
+      .from('account')
+      .select('id,code,name')
+      .eq('organization_id', organization.id)
+      .eq('project_id', projectId)
+      .order('code'),
+  ]);
+  const accounts = accountsRes.data;
 
   const filtersLabel = `project=${projectName}${accountIds ? ` account=${accountIds.join(',')}` : ''}`;
 

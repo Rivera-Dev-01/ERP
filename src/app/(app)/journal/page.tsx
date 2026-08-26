@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { requireOrganization } from '@/server/auth';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { JournalTable, type JournalEntryRow } from '@/components/journal/JournalTable';
 import { buttonVariants } from '@/components/ui/button';
@@ -27,13 +27,11 @@ export default async function JournalPage({
   const toRaw = getFirst(params.to ?? params.date_to ?? params.end_date ?? params.end);
   const accountRaw = getFirst(params.account ?? params.account_id ?? params.accountId);
   const projectRaw = getFirst(params.project);
+  const pageRaw = getFirst(params.page);
+  const page = Math.max(1, parseInt(String(pageRaw ?? '1'), 10) || 1);
+  const pageSize = 50;
 
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id,name')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  const projects = await getActiveProjects(organization.id);
 
   const projectId = projectRaw ? String(projectRaw) : projects?.[0]?.id;
 
@@ -77,17 +75,27 @@ export default async function JournalPage({
     redirect(`/journal?${qs.toString()}`);
   }
 
-  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
 
-  // Build base query — strictly per Project (fresh project shows 0)
+  // Accounts are needed for filter dropdown — fetch in parallel with entries
+  const accountsPromise = supabase
+    .from('account')
+    .select('id,code,name')
+    .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
+    .eq('is_active', true)
+    .order('code');
+
+  // Build base query — strictly per Project (fresh project shows 0), paginated
   // Use `any` to avoid Supabase type narrowing issues with chained .in/.or/.gte
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = supabase
     .from('journal_entry')
-    .select('*')
+    .select('id,entry_number,entry_date,reference,description,status,total_debit,total_credit,created_at,updated_at,project_id')
     .eq('organization_id', organization.id)
     .eq('project_id', projectId)
-    .order('entry_date', { ascending: false });
+    .order('entry_date', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (statusRaw) {
     const statuses = String(statusRaw)
@@ -118,16 +126,18 @@ export default async function JournalPage({
 
   if (accountRaw) {
     const accountId = String(accountRaw);
+    // Limit lineRows to avoid fetching entire history for high-volume accounts
     const { data: lineRows } = await supabase
       .from('journal_line')
-      .select('journal_entry_id, account_id')
-      .eq('account_id', accountId);
-    // Further filter ids to this project via journal_entry ids already constrained? Easiest: fetch ids then query with project_id
+      .select('journal_entry_id')
+      .eq('account_id', accountId)
+      .limit(500);
     const ids = [...new Set((lineRows ?? []).map((r: { journal_entry_id: string }) => r.journal_entry_id))];
     if (ids.length === 0) {
       entries = [];
     } else {
-      const { data } = await query.in('id', ids);
+      // Preserve pagination: still respect project filter already in query, add id filter
+      const { data } = await query.in('id', ids.slice(0, pageSize));
       entries = (data ?? []) as unknown as JournalEntryRow[];
     }
   } else {
@@ -135,13 +145,7 @@ export default async function JournalPage({
     entries = (data ?? []) as unknown as JournalEntryRow[];
   }
 
-  const { data: accounts } = await supabase
-    .from('account')
-    .select('id,code,name')
-    .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
-    .eq('is_active', true)
-    .order('code');
+  const { data: accounts } = await accountsPromise;
 
   const mapped: JournalEntryRow[] = (entries ?? []).map((e) => ({
     ...e,

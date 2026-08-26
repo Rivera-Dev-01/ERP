@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization } from '@/server/auth';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { getGeneralLedger } from '@/server/reports/general-ledger';
 import { ReportHeader } from '@/components/reports/ReportHeader';
@@ -18,12 +18,7 @@ export default async function GeneralLedgerPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id,name')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  const projects = await getActiveProjects(organization.id);
   const projectId = params.project ? String(params.project) : projects?.[0]?.id;
   if (!projectId) {
     return (
@@ -49,7 +44,7 @@ export default async function GeneralLedgerPage({
     if (params.account) search.set('account', String(params.account));
     redirect(`/reports/general-ledger?${search.toString()}`);
   }
-  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
 
   const { data: period } = await supabase
     .from('fiscal_period')
@@ -65,22 +60,27 @@ export default async function GeneralLedgerPage({
   const to = params.to ?? period?.end_date ?? '2026-07-31';
   const accountId = params.account ? String(params.account).split(',')[0] : undefined;
 
-  const { data: accounts } = await supabase
+  // Accounts list is independent of ledger result — fetch in parallel
+  const accountsPromise = supabase
     .from('account')
     .select('id,code,name')
     .eq('organization_id', organization.id)
     .eq('project_id', projectId)
     .order('code');
 
-  const result = accountId
-    ? await getGeneralLedger({
-        organizationId: organization.id,
-        projectId,
-        accountId,
-        from,
-        to,
-      })
-    : null;
+  const [accountsRes, result] = await Promise.all([
+    accountsPromise,
+    accountId
+      ? getGeneralLedger({
+          organizationId: organization.id,
+          projectId,
+          accountId,
+          from,
+          to,
+        })
+      : Promise.resolve(null),
+  ]);
+  const accounts = accountsRes.data;
 
   const displayRows = (result?.lines ?? []).map((l) => ({
     entryDate: formatBusinessDate(l.journal_entry.entry_date),

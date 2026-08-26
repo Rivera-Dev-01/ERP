@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { requireOrganization } from '@/server/auth';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { JournalForm } from '@/components/journal/JournalForm';
 import { PostConfirm } from '@/components/journal/PostConfirm';
@@ -16,12 +16,7 @@ export default async function JournalEntryPage({ params, searchParams }: { param
   const sp = searchParams ? await searchParams : {};
   const { organization } = await requireOrganization();
   const supabase = await createClient();
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  const projects = await getActiveProjects(organization.id);
   const rawProject = sp.project ? String(sp.project) : undefined;
   const projectId = rawProject ?? projects?.[0]?.id ?? '';
 

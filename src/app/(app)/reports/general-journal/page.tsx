@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization } from '@/server/auth';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { getGeneralJournal } from '@/server/reports/general-journal';
 import { ReportHeader } from '@/components/reports/ReportHeader';
@@ -18,12 +18,7 @@ export default async function GeneralJournalPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id,name')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  const projects = await getActiveProjects(organization.id);
   const projectId = params.project ? String(params.project) : projects?.[0]?.id;
   if (!projectId) {
     return (
@@ -51,7 +46,7 @@ export default async function GeneralJournalPage({
     if (params.q) search.set('q', String(params.q));
     redirect(`/reports/general-journal?${search.toString()}`);
   }
-  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
 
   const { data: period } = await supabase
     .from('fiscal_period')
@@ -69,22 +64,24 @@ export default async function GeneralJournalPage({
   const accountIds = params.account ? String(params.account).split(',').filter(Boolean) : undefined;
   const q = params.q;
 
-  const rows = await getGeneralJournal({
-    organizationId: organization.id,
-    projectId,
-    from,
-    to,
-    status,
-    accountIds,
-    q,
-  });
-
-  const { data: accounts } = await supabase
-    .from('account')
-    .select('id,code,name')
-    .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
-    .order('code');
+  const [rows, accountsRes] = await Promise.all([
+    getGeneralJournal({
+      organizationId: organization.id,
+      projectId,
+      from,
+      to,
+      status,
+      accountIds,
+      q,
+    }),
+    supabase
+      .from('account')
+      .select('id,code,name')
+      .eq('organization_id', organization.id)
+      .eq('project_id', projectId)
+      .order('code'),
+  ]);
+  const accounts = accountsRes.data;
 
   const displayRows = rows.map((r) => ({
     entryNumber: r.journal_entry.entry_number != null ? `JE-2026-${String(r.journal_entry.entry_number).padStart(4, '0')}` : '—',

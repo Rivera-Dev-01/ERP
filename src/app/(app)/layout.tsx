@@ -1,17 +1,11 @@
-import { requireOrganization } from '@/server/auth';
-import { createClient } from '@/server/supabase/server';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { Sidebar } from '@/components/layout/sidebar';
 import { UserMenu } from '@/components/layout/user-menu';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { organization, profile } = await requireOrganization();
-  const supabase = await createClient();
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id,name,client_name')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  // Reuse React.cache — page-level project fetches dedupe to 0 extra DB round trips per request
+  const projects = await getActiveProjects(organization.id);
 
   return (
     <div className="flex min-h-screen">

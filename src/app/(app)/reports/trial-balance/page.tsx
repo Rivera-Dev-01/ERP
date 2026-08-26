@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrganization } from '@/server/auth';
+import { requireOrganization, getActiveProjects } from '@/server/auth';
 import { createClient } from '@/server/supabase/server';
 import { getTrialBalance } from '@/server/reports/trial-balance';
 import { ReportHeader } from '@/components/reports/ReportHeader';
@@ -19,13 +19,8 @@ export default async function TrialBalancePage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  // Resolve projectId from ?project= or default first ACTIVE
-  const { data: projects } = await supabase
-    .from('project')
-    .select('id,name')
-    .eq('organization_id', organization.id)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+  // Resolve projectId — React.cache dedupes with layout (0 extra DB)
+  const projects = await getActiveProjects(organization.id);
   const projectId = params.project ? String(params.project) : projects?.[0]?.id;
   if (!projectId) {
     return (
@@ -52,7 +47,7 @@ export default async function TrialBalancePage({
     if (params.account) search.set('account', String(params.account));
     redirect(`/reports/trial-balance?${search.toString()}`);
   }
-  const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
 
   const { data: period } = await supabase
     .from('fiscal_period')
@@ -68,20 +63,23 @@ export default async function TrialBalancePage({
   const to = params.to ?? period?.end_date ?? '2026-07-31';
   const accountIds = params.account ? String(params.account).split(',').filter(Boolean) : undefined;
 
-  const { rows, totalEndingDebits, totalEndingCredits, isBalanced } = await getTrialBalance({
-    organizationId: organization.id,
-    projectId,
-    from,
-    to,
-    accountIds,
-  });
-
-  const { data: accounts } = await supabase
-    .from('account')
-    .select('id,code,name')
-    .eq('organization_id', organization.id)
-    .eq('project_id', projectId)
-    .order('code');
+  // Parallelize heavy balances aggregation + accounts list (accounts not dependent on period)
+  const [{ rows, totalEndingDebits, totalEndingCredits, isBalanced }, accountsRes] = await Promise.all([
+    getTrialBalance({
+      organizationId: organization.id,
+      projectId,
+      from,
+      to,
+      accountIds,
+    }),
+    supabase
+      .from('account')
+      .select('id,code,name')
+      .eq('organization_id', organization.id)
+      .eq('project_id', projectId)
+      .order('code'),
+  ]);
+  const accounts = accountsRes.data;
 
   const displayRows = rows.map((r) => ({
     code: r.account.code,

@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/server/supabase/server';
 import type { Tables } from '@/types/database';
@@ -25,37 +26,38 @@ export async function requireSession() {
   return { user };
 }
 
-export async function getOrganizationContext() {
+export const getOrganizationContext = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from('profile')
-    .select('*')
-    .eq('id', user.id)
-    .maybeSingle();
+  // Fetch profile + membership in parallel — was sequential (2 round trips)
+  const [profileRes, membershipRes] = await Promise.all([
+    supabase.from('profile').select('*').eq('id', user.id).maybeSingle(),
+    supabase
+      .from('organization_membership')
+      .select('*, organization(*)')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+  ]);
 
+  const profile = profileRes.data as Profile | null;
   if (!profile) return null;
 
-  const { data: membership } = await supabase
-    .from('organization_membership')
-    .select('*, organization(*)')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
+  const membership = membershipRes.data as
+    | (OrganizationMembership & { organization: Organization })
+    | null;
   if (!membership) return null;
 
   return {
     user,
-    profile: profile as Profile,
-    membership: membership as OrganizationMembership & { organization: Organization },
-    organization: (membership as OrganizationMembership & { organization: Organization })
-      .organization,
+    profile,
+    membership,
+    organization: membership.organization,
   };
-}
+});
 
 export async function requireOrganization() {
   const ctx = await getOrganizationContext();
@@ -87,18 +89,18 @@ export async function requireProject(organizationId: string, projectId: string) 
   return data as Tables<'project'>;
 }
 
-export async function getActiveProjects(organizationId: string) {
+export const getActiveProjects = cache(async (organizationId: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from('project')
-    .select('*')
+    .select('id,name,client_name,status,created_at')
     .eq('organization_id', organizationId)
     .eq('status', 'ACTIVE')
     .order('created_at', { ascending: true });
   return (data ?? []) as Array<Tables<'project'>>;
-}
+});
 
-export async function getDefaultProjectId(organizationId: string): Promise<string | null> {
+export const getDefaultProjectId = cache(async (organizationId: string): Promise<string | null> => {
   const projects = await getActiveProjects(organizationId);
   return projects[0]?.id ?? null;
-}
+});
