@@ -18,10 +18,36 @@ export default async function TrialBalancePage({
   const params = await searchParams;
   const supabase = await createClient();
 
+  // Resolve projectId from ?project= or default first ACTIVE
+  const { data: projects } = await supabase
+    .from('project')
+    .select('id')
+    .eq('organization_id', organization.id)
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: true });
+  const projectId = params.project ? String(params.project) : projects?.[0]?.id;
+  if (!projectId) {
+    return (
+      <PrintLayout>
+        <ReportHeader
+          company={`${organization.name} — ${organization.legal_name}`}
+          title="Trial Balance"
+          from="2026-07-01"
+          to="2026-07-31"
+          generatedAt={new Date().toISOString()}
+        />
+        <div className="p-8 text-center text-muted-foreground">
+          No projects yet. <a href="/projects" className="underline">Create a project</a> to view reports.
+        </div>
+      </PrintLayout>
+    );
+  }
+
   const { data: period } = await supabase
     .from('fiscal_period')
     .select('start_date,end_date')
     .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
     .eq('status', 'OPEN')
     .order('start_date', { ascending: false })
     .limit(1)
@@ -33,6 +59,7 @@ export default async function TrialBalancePage({
 
   const { rows, totalEndingDebits, totalEndingCredits, isBalanced } = await getTrialBalance({
     organizationId: organization.id,
+    projectId,
     from,
     to,
     accountIds,
@@ -42,6 +69,7 @@ export default async function TrialBalancePage({
     .from('account')
     .select('id,code,name')
     .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
     .order('code');
 
   const displayRows = rows.map((r) => ({
@@ -64,7 +92,7 @@ export default async function TrialBalancePage({
     { accessorKey: 'ending', header: 'Ending' },
   ];
 
-  const filtersLabel = accountIds ? `account=${accountIds.join(',')}` : undefined;
+  const filtersLabel = `project=${projectId}${accountIds ? ` account=${accountIds.join(',')}` : ''}`;
 
   return (
     <PrintLayout>
@@ -78,10 +106,10 @@ export default async function TrialBalancePage({
       />
       <FilterBar from={from} to={to} accounts={accounts ?? []} />
       <div className="flex gap-2 py-2 print:hidden">
-        <a href={`/api/export/trial-balance?format=csv&from=${from}&to=${to}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+        <a href={`/api/export/trial-balance?format=csv&from=${from}&to=${to}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
           Export CSV
         </a>
-        <a href={`/api/export/trial-balance?format=xlsx&from=${from}&to=${to}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+        <a href={`/api/export/trial-balance?format=xlsx&from=${from}&to=${to}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
           Export XLSX
         </a>
       </div>

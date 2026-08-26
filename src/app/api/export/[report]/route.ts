@@ -24,12 +24,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ repo
   const account = url.searchParams.get('account');
   const format = (url.searchParams.get('format') ?? 'csv').toLowerCase();
   const accountIds = account ? account.split(',').filter(Boolean) : undefined;
+  const projectParam = url.searchParams.get('project');
+  let projectId: string | undefined = projectParam ?? undefined;
+  if (!projectId) {
+    const { createClient } = await import('@/server/supabase/server');
+    const supabase = await createClient();
+    const { data: proj } = await supabase
+      .from('project')
+      .select('id')
+      .eq('organization_id', ctx.organization.id)
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    projectId = proj?.id ?? undefined;
+  }
 
   let headers: string[] = [];
   let rows: Array<Record<string, unknown>> = [];
 
   if (report === 'trial-balance') {
-    const { rows: trialRows } = await getTrialBalance({ organizationId: ctx.organization.id, from, to, accountIds });
+    const { rows: trialRows } = await getTrialBalance({ organizationId: ctx.organization.id, projectId, from, to, accountIds });
     headers = ['Code', 'Name', 'Opening debit', 'Opening credit', 'Period debit', 'Period credit', 'Ending debit', 'Ending credit'];
     rows = trialRows.map((r) => ({
       Code: r.account.code,
@@ -42,14 +57,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ repo
       'Ending credit': r.ending.side === 'CREDIT' ? r.ending.amount : '',
     }));
   } else if (report === 'income-statement') {
-    const { incomeRows, expenseRows } = await getIncomeStatement({ organizationId: ctx.organization.id, from, to, accountIds });
+    const { incomeRows, expenseRows } = await getIncomeStatement({ organizationId: ctx.organization.id, projectId, from, to, accountIds });
     headers = ['Type', 'Code', 'Name', 'Amount'];
     rows = [
       ...incomeRows.map((r) => ({ Type: 'INCOME', Code: r.account.code, Name: r.account.name, Amount: r.ending.amount })),
       ...expenseRows.map((r) => ({ Type: 'EXPENSE', Code: r.account.code, Name: r.account.name, Amount: r.ending.amount })),
     ];
   } else if (report === 'balance-sheet') {
-    const { assets, liabilities, equity, currentEarnings } = await getBalanceSheet({ organizationId: ctx.organization.id, asOf: to, accountIds });
+    const { assets, liabilities, equity, currentEarnings } = await getBalanceSheet({ organizationId: ctx.organization.id, projectId, asOf: to, accountIds });
     headers = ['Section', 'Amount'];
     rows = [
       { Section: 'Assets', Amount: assets },
@@ -58,7 +73,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ repo
       { Section: 'Current Earnings', Amount: currentEarnings },
     ];
   } else if (report === 'general-ledger' && accountIds?.length === 1) {
-    const { opening, lines } = await getGeneralLedger({ organizationId: ctx.organization.id, accountId: accountIds[0], from, to });
+    const { opening, lines } = await getGeneralLedger({ organizationId: ctx.organization.id, projectId, accountId: accountIds[0], from, to });
     headers = ['Date', 'Entry Number', 'Reference', 'Description', 'Debit', 'Credit', 'Running Balance', 'Side'];
     rows = [
       { Date: '', 'Entry Number': '', Reference: 'Opening', Description: `${opening.side} ${opening.amount}`, Debit: '', Credit: '', 'Running Balance': opening.amount, Side: opening.side },
@@ -76,6 +91,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ repo
   } else {
     const journalRows = await getGeneralJournal({
       organizationId: ctx.organization.id,
+      projectId,
       from,
       to,
       status: url.searchParams.get('status') ?? 'POSTED',

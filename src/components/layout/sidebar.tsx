@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { ProjectSwitcher } from '@/components/layout/ProjectSwitcher';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -12,14 +13,26 @@ const NAV_ITEMS = [
   { href: '/reports/trial-balance', label: 'Reports' },
 ];
 
-const SECONDARY_NAV = [{ href: '/settings', label: 'Settings' }];
+const SECONDARY_NAV = [
+  { href: '/projects', label: 'Projects' },
+  { href: '/settings', label: 'Settings' },
+];
 
-export function Sidebar({ organizationName }: { organizationName: string }) {
+export function Sidebar({
+  organizationName,
+  projects,
+}: {
+  organizationName: string;
+  projects: Array<{ id: string; name: string; client_name?: string | null }>;
+}) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeProject = searchParams.get('project') ?? projects[0]?.id ?? '';
 
   return (
-    <aside className="flex w-56 flex-col border-r bg-muted/30 p-4">
+    <aside className="flex w-56 flex-col border-r bg-muted/30 p-4" data-sidebar>
       <p className="mb-6 px-2 text-sm font-semibold">{organizationName}</p>
+      <ProjectSwitcher projects={projects} activeId={activeProject} />
       <nav className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const active =

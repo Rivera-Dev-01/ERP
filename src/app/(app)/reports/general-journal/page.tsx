@@ -17,10 +17,35 @@ export default async function GeneralJournalPage({
   const params = await searchParams;
   const supabase = await createClient();
 
+  const { data: projects } = await supabase
+    .from('project')
+    .select('id')
+    .eq('organization_id', organization.id)
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: true });
+  const projectId = params.project ? String(params.project) : projects?.[0]?.id;
+  if (!projectId) {
+    return (
+      <PrintLayout>
+        <ReportHeader
+          company={`${organization.name} — ${organization.legal_name}`}
+          title="General Journal"
+          from="2026-07-01"
+          to="2026-07-31"
+          generatedAt={new Date().toISOString()}
+        />
+        <div className="p-8 text-center text-muted-foreground">
+          No projects yet. <a href="/projects" className="underline">Create a project</a> to view reports.
+        </div>
+      </PrintLayout>
+    );
+  }
+
   const { data: period } = await supabase
     .from('fiscal_period')
     .select('start_date,end_date')
     .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
     .eq('status', 'OPEN')
     .order('start_date', { ascending: false })
     .limit(1)
@@ -34,6 +59,7 @@ export default async function GeneralJournalPage({
 
   const rows = await getGeneralJournal({
     organizationId: organization.id,
+    projectId,
     from,
     to,
     status,
@@ -45,6 +71,7 @@ export default async function GeneralJournalPage({
     .from('account')
     .select('id,code,name')
     .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
     .order('code');
 
   const displayRows = rows.map((r) => ({
@@ -71,7 +98,7 @@ export default async function GeneralJournalPage({
     { accessorKey: 'status', header: 'Status' },
   ];
 
-  const filtersLabel = `status=${status}${accountIds ? ` account=${accountIds.join(',')}` : ''}${q ? ` q=${q}` : ''}`;
+  const filtersLabel = `project=${projectId} status=${status}${accountIds ? ` account=${accountIds.join(',')}` : ''}${q ? ` q=${q}` : ''}`;
 
   return (
     <PrintLayout>
@@ -86,13 +113,13 @@ export default async function GeneralJournalPage({
       <FilterBar from={from} to={to} accounts={accounts ?? []} />
       <div className="flex gap-2 py-2 print:hidden">
         <a
-          href={`/api/export/general-journal?format=csv&from=${from}&to=${to}${accountIds ? `&account=${accountIds.join(',')}` : ''}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
+          href={`/api/export/general-journal?format=csv&from=${from}&to=${to}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
           className="text-sm underline"
         >
           Export CSV
         </a>
         <a
-          href={`/api/export/general-journal?format=xlsx&from=${from}&to=${to}${accountIds ? `&account=${accountIds.join(',')}` : ''}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
+          href={`/api/export/general-journal?format=xlsx&from=${from}&to=${to}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
           className="text-sm underline"
         >
           Export XLSX

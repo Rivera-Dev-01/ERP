@@ -16,10 +16,35 @@ export default async function BalanceSheetPage({
   const params = await searchParams;
   const supabase = await createClient();
 
+  const { data: projects } = await supabase
+    .from('project')
+    .select('id')
+    .eq('organization_id', organization.id)
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: true });
+  const projectId = params.project ? String(params.project) : projects?.[0]?.id;
+  if (!projectId) {
+    return (
+      <PrintLayout>
+        <ReportHeader
+          company={`${organization.name} — ${organization.legal_name}`}
+          title="Balance Sheet"
+          from="1970-01-01"
+          to="2026-07-31"
+          generatedAt={new Date().toISOString()}
+        />
+        <div className="p-8 text-center text-muted-foreground">
+          No projects yet. <a href="/projects" className="underline">Create a project</a> to view reports.
+        </div>
+      </PrintLayout>
+    );
+  }
+
   const { data: period } = await supabase
     .from('fiscal_period')
     .select('start_date,end_date')
     .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
     .eq('status', 'OPEN')
     .order('start_date', { ascending: false })
     .limit(1)
@@ -31,6 +56,7 @@ export default async function BalanceSheetPage({
 
   const { assets, liabilities, equity, currentEarnings, isBalanced } = await getBalanceSheet({
     organizationId: organization.id,
+    projectId,
     asOf,
     accountIds,
   });
@@ -39,9 +65,10 @@ export default async function BalanceSheetPage({
     .from('account')
     .select('id,code,name')
     .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
     .order('code');
 
-  const filtersLabel = accountIds ? `account=${accountIds.join(',')}` : undefined;
+  const filtersLabel = `project=${projectId}${accountIds ? ` account=${accountIds.join(',')}` : ''}`;
 
   return (
     <PrintLayout>
@@ -55,10 +82,10 @@ export default async function BalanceSheetPage({
       />
       <FilterBar from={from} to={asOf} accounts={accounts ?? []} />
       <div className="flex gap-2 py-2 print:hidden">
-        <a href={`/api/export/balance-sheet?format=csv&to=${asOf}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+        <a href={`/api/export/balance-sheet?format=csv&to=${asOf}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
           Export CSV
         </a>
-        <a href={`/api/export/balance-sheet?format=xlsx&to=${asOf}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
+        <a href={`/api/export/balance-sheet?format=xlsx&to=${asOf}&project=${projectId}${accountIds ? `&account=${accountIds.join(',')}` : ''}`} className="text-sm underline">
           Export XLSX
         </a>
       </div>
