@@ -62,8 +62,23 @@ export async function upsertAccount(_prev: R, formData: FormData): Promise<R> {
     return { ok: false, formError: 'Not authorized' };
   }
   const supabase = await createClient();
+  // Resolve projectId from form or default first ACTIVE
+  let projectId = String(formData.get('project_id') ?? '').trim();
+  if (!projectId) {
+    const { data: proj } = await supabase
+      .from('project')
+      .select('id')
+      .eq('organization_id', ctx.organization.id)
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!proj) return { ok: false, formError: 'No project found. Create a project first.' };
+    projectId = proj.id;
+  }
   const payload = {
     organization_id: ctx.organization.id,
+    project_id: projectId,
     code: parsed.data.code,
     name: parsed.data.name,
     type: parsed.data.type,
@@ -76,23 +91,38 @@ export async function upsertAccount(_prev: R, formData: FormData): Promise<R> {
         .update(payload)
         .eq('id', String(formData.get('id')))
         .eq('organization_id', ctx.organization.id)
+        .eq('project_id', projectId)
     : await supabase.from('account').insert(payload);
   if (error) {
     if ((error as { code?: string }).code === '23505')
-      return { ok: false, fieldErrors: { code: 'Code already exists in this organization' } };
+      return { ok: false, fieldErrors: { code: 'Code already exists in this project' } };
     return { ok: false, formError: 'Unable to save account. Please try again.' };
   }
   revalidatePath('/accounts');
   return { ok: true };
 }
 
-export async function seedDemoAccountsIfEmpty(): Promise<void> {
+export async function seedDemoAccountsIfEmpty(projectId?: string): Promise<void> {
   const ctx = await requireOrganizationAction();
   const supabase = await createClient();
+  let pid = projectId;
+  if (!pid) {
+    const { data: proj } = await supabase
+      .from('project')
+      .select('id')
+      .eq('organization_id', ctx.organization.id)
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!proj) return;
+    pid = proj.id;
+  }
   const { count } = await supabase
     .from('account')
     .select('id', { count: 'exact', head: true })
-    .eq('organization_id', ctx.organization.id);
+    .eq('organization_id', ctx.organization.id)
+    .eq('project_id', pid);
   if ((count ?? 0) > 0) return;
   const rows = [
     {
@@ -137,10 +167,10 @@ export async function seedDemoAccountsIfEmpty(): Promise<void> {
       normal_balance: 'DEBIT' as const,
       is_active: true,
     },
-  ].map((r) => ({ ...r, organization_id: ctx.organization.id }));
+  ].map((r) => ({ ...r, organization_id: ctx.organization.id, project_id: pid }));
   await supabase
     .from('account')
-    .upsert(rows, { onConflict: 'organization_id,code', ignoreDuplicates: false });
+    .upsert(rows, { onConflict: 'project_id,code', ignoreDuplicates: false });
 }
 
 export async function importAccountsCsv(
@@ -183,21 +213,36 @@ export async function importAccountsCsv(
   const rows = parsed.data as Record<string, string>[];
   const { rowErrors, normalized } = validateCoaRows(rows);
   const supabase = await createClient();
+  let projectId = String(formData.get('project_id') ?? '').trim();
+  if (!projectId) {
+    const { data: proj } = await supabase
+      .from('project')
+      .select('id')
+      .eq('organization_id', ctx.organization.id)
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!proj) return { ok: false, formError: 'No project found. Create a project first.' } as const;
+    projectId = proj.id;
+  }
   if (normalized.length > 0) {
     const codes = normalized.map((r) => r.code);
     const { data: existing } = await supabase
       .from('account')
       .select('code')
       .eq('organization_id', ctx.organization.id)
+      .eq('project_id', projectId)
       .in('code', codes);
     const existingSet = new Set((existing ?? []).map((r) => r.code));
     for (const r of normalized)
       if (existingSet.has(r.code))
-        rowErrors.push({ row: -1, code: r.code, message: 'Code already exists in organization' });
+        rowErrors.push({ row: -1, code: r.code, message: 'Code already exists in this project' });
   }
   if (rowErrors.length > 0) return { ok: false, rowErrors, rowCount: rows.length } as const;
   const payload = normalized.map((r) => ({
     organization_id: ctx.organization.id,
+    project_id: projectId,
     code: r.code,
     name: r.name,
     type: r.type as Database['public']['Enums']['account_type'],
@@ -209,13 +254,14 @@ export async function importAccountsCsv(
     if ((error as { code?: string }).code === '23505')
       return {
         ok: false,
-        rowErrors: [{ row: -1, code: '', message: 'Duplicate code in organization (race)' }],
+        rowErrors: [{ row: -1, code: '', message: 'Duplicate code in this project (race)' }],
         rowCount: rows.length,
       } as const;
     return { ok: false, formError: 'Import failed. Please try again.' } as const;
   }
   await supabase.from('import_batch').insert({
     organization_id: ctx.organization.id,
+    project_id: projectId,
     file_name: file.name,
     import_type: 'CHART_OF_ACCOUNTS',
     status: 'IMPORTED',

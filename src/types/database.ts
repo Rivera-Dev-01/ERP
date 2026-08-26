@@ -48,7 +48,7 @@ export type Database = {
           name: string
           normal_balance: Database["public"]["Enums"]["normal_balance"]
           organization_id: string
-          project_id: string | null
+          project_id: string
           type: Database["public"]["Enums"]["account_type"]
           updated_at: string
         }
@@ -60,7 +60,7 @@ export type Database = {
           name: string
           normal_balance: Database["public"]["Enums"]["normal_balance"]
           organization_id: string
-          project_id?: string | null
+          project_id?: string
           type: Database["public"]["Enums"]["account_type"]
           updated_at?: string
         }
@@ -72,7 +72,7 @@ export type Database = {
           name?: string
           normal_balance?: Database["public"]["Enums"]["normal_balance"]
           organization_id?: string
-          project_id?: string | null
+          project_id?: string
           type?: Database["public"]["Enums"]["account_type"]
           updated_at?: string
         }
@@ -159,7 +159,7 @@ export type Database = {
           id: string
           name: string
           organization_id: string
-          project_id: string | null
+          project_id: string
           start_date: string
           status: Database["public"]["Enums"]["fiscal_period_status"]
           updated_at: string
@@ -171,7 +171,7 @@ export type Database = {
           id?: string
           name: string
           organization_id: string
-          project_id?: string | null
+          project_id?: string
           start_date: string
           status?: Database["public"]["Enums"]["fiscal_period_status"]
           updated_at?: string
@@ -183,7 +183,7 @@ export type Database = {
           id?: string
           name?: string
           organization_id?: string
-          project_id?: string | null
+          project_id?: string
           start_date?: string
           status?: Database["public"]["Enums"]["fiscal_period_status"]
           updated_at?: string
@@ -214,7 +214,7 @@ export type Database = {
           import_type: Database["public"]["Enums"]["import_type"]
           invalid_row_count: number
           organization_id: string
-          project_id: string | null
+          project_id: string
           row_count: number
           status: Database["public"]["Enums"]["import_batch_status"]
           valid_row_count: number
@@ -227,7 +227,7 @@ export type Database = {
           import_type: Database["public"]["Enums"]["import_type"]
           invalid_row_count?: number
           organization_id: string
-          project_id?: string | null
+          project_id?: string
           row_count?: number
           status?: Database["public"]["Enums"]["import_batch_status"]
           valid_row_count?: number
@@ -240,7 +240,7 @@ export type Database = {
           import_type?: Database["public"]["Enums"]["import_type"]
           invalid_row_count?: number
           organization_id?: string
-          project_id?: string | null
+          project_id?: string
           row_count?: number
           status?: Database["public"]["Enums"]["import_batch_status"]
           valid_row_count?: number
@@ -283,7 +283,7 @@ export type Database = {
           organization_id: string
           posted_at: string | null
           posted_by_id: string | null
-          project_id: string | null
+          project_id: string
           reference: string
           reversal_of_id: string | null
           status: Database["public"]["Enums"]["journal_status"]
@@ -304,7 +304,7 @@ export type Database = {
           organization_id: string
           posted_at?: string | null
           posted_by_id?: string | null
-          project_id?: string | null
+          project_id?: string
           reference: string
           reversal_of_id?: string | null
           status?: Database["public"]["Enums"]["journal_status"]
@@ -325,7 +325,7 @@ export type Database = {
           organization_id?: string
           posted_at?: string | null
           posted_by_id?: string | null
-          project_id?: string | null
+          project_id?: string
           reference?: string
           reversal_of_id?: string | null
           status?: Database["public"]["Enums"]["journal_status"]

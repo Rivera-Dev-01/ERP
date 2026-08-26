@@ -26,8 +26,22 @@ export async function createFiscalPeriod(_prev: R, formData: FormData): Promise<
     return { ok: false, formError: 'Not authorized' };
   }
   const supabase = await createClient();
+  let projectId = String(formData.get('project_id') ?? '').trim();
+  if (!projectId) {
+    const { data: proj } = await supabase
+      .from('project')
+      .select('id')
+      .eq('organization_id', ctx.organization.id)
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!proj) return { ok: false, formError: 'No project found. Create a project first.' };
+    projectId = proj.id;
+  }
   const { error } = await supabase.from('fiscal_period').insert({
     organization_id: ctx.organization.id,
+    project_id: projectId,
     name: parsed.data.name,
     start_date: parsed.data.start_date,
     end_date: parsed.data.end_date,
