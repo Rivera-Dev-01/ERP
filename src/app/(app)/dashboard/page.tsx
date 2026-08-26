@@ -45,27 +45,31 @@ export default async function DashboardPage({
 
   const projectName = projects?.find((p) => p.id === projectId)?.name ?? projectId;
 
-  // Parallelize period + entries (was sequential 2 round trips)
-  const [periodRes, entriesRes] = await Promise.all([
-    supabase
-      .from('fiscal_period')
-      .select('*')
-      .eq('organization_id', organization.id)
-      .eq('project_id', projectId)
-      .eq('status', 'OPEN')
-      .order('start_date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from('journal_entry')
-      .select('status, total_debit, total_credit')
-      .eq('organization_id', organization.id)
-      .eq('project_id', projectId)
-      .limit(200),
-  ]);
+  // Period-scoped totals: fetch open period first, then scope entries to its date range
+  const { data: period } = await supabase
+    .from('fiscal_period')
+    .select('*')
+    .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
+    .eq('status', 'OPEN')
+    .order('start_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  const period = periodRes.data as typeof periodRes.data;
-  const entries = entriesRes.data as typeof entriesRes.data;
+  let entriesQuery = supabase
+    .from('journal_entry')
+    .select('status, total_debit, total_credit')
+    .eq('organization_id', organization.id)
+    .eq('project_id', projectId)
+    .limit(200);
+
+  if (period) {
+    entriesQuery = entriesQuery
+      .gte('entry_date', period.start_date)
+      .lte('entry_date', period.end_date);
+  }
+
+  const { data: entries } = await entriesQuery;
 
   const draftCount = entries?.filter((e) => e.status === 'DRAFT').length ?? 0;
   const postedEntries = entries?.filter((e) => e.status === 'POSTED') ?? [];
@@ -99,6 +103,9 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{draftCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {period ? `for ${period.name}` : 'No open fiscal period'}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -109,6 +116,9 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{postedCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {period ? `for ${period.name}` : 'No open fiscal period'}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -119,6 +129,9 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{formatPHP(totalDebit.toNumber())}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {period ? `for ${period.name}` : 'No open fiscal period'}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -129,6 +142,9 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{formatPHP(totalCredit.toNumber())}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {period ? `for ${period.name}` : 'No open fiscal period'}
+            </p>
           </CardContent>
         </Card>
       </div>
